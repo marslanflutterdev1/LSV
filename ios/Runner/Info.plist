@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Live Satellite View</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Live Satellite View</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to your location to show it on the map.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to your microphone to convert your voice to text for address input.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>flutter</string>
+					<key>UISceneDelegateClassName</key>
+					<string>FlutterSceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+
+
+
+    <!-- ============================= -->
+    <!-- Google Maps -->
+    <!-- ============================= -->
+
+    <!-- ============================= -->
+    <!-- Google Mobile Ads -->
+    <!-- ============================= -->
+
+    <key>GADApplicationIdentifier</key>
+    <string>ca-app-pub-9286034634524758~4529928053</string>
+
+    <!-- ============================= -->
+    <!-- Location Permission -->
+    <!-- Required for:
+         geolocator
+         google_maps_flutter
+         flutter_map
+         flutter_compass
+         geocoding
+         flutter_polyline_points
+    -->
+    <!-- ============================= -->
+
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Your location is used to display your current position, nearby places, maps, navigation, and route guidance.</string>
+
+    <!-- Add ONLY if background location is used -->
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Your location is used during active navigation to provide continuous route guidance.</string>
+
+    <!-- ============================= -->
+    <!-- Camera -->
+    <!-- camera package -->
+    <!-- ============================= -->
+
+    <key>NSCameraUsageDescription</key>
+    <string>This app uses the camera to capture photos and videos.</string>
+
+    <!-- ============================= -->
+    <!-- Microphone -->
+    <!-- speech_to_text
+         camera (video recording)
+    -->
+    <!-- ============================= -->
+
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app uses the microphone for voice search, speech recognition, and video recording.</string>
+
+    <!-- ============================= -->
+    <!-- Speech Recognition -->
+    <!-- speech_to_text -->
+    <!-- ============================= -->
+
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>This app converts your speech into text for voice commands and search.</string>
+
+    <!-- ============================= -->
+    <!-- Photo Library -->
+    <!-- share_plus / camera -->
+    <!-- ============================= -->
+
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>This app accesses your photo library when you choose images to share or upload.</string>
+
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>This app saves images to your photo library when requested.</string>
+
+    <!-- ============================= -->
+    <!-- App Transport Security -->
+    <!-- ============================= -->
+
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <false/>
+    </dict>
+
+    <!-- ============================= -->
+    <!-- Background Modes -->
+    <!-- Enable ONLY if your app actually
+         performs background navigation
+    -->
+    <!-- ============================= -->
+
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>location</string>
+    </array>
+
+</dict>
+</plist>

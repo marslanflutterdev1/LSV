@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "240257650648",
+    "project_id": "sattelite-view-by-arsalan",
+    "storage_bucket": "sattelite-view-by-arsalan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:240257650648:android:a0f19a192b3acf0e972cad",
+        "android_client_info": {
+          "package_name": "com.maps.sateliteview"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD70eo7s_CGZxne_1nKPKAHU76t9x1fxfM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
