@@ -185,6 +185,8 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
                             ),
                             label: "View",
                           ),
+
+                          /// This in remender
                           // BottomNavigationBarItem(
                           //   icon: Image.asset(
                           //     'assets/images/home_icons/home_icon_12.png',

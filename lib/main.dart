@@ -39,6 +39,7 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   /// Reset sp data
+  /// This clear data when app restart and load again.
   // await LocalSP.clearAllData();
 
   /// Initialize firebase remote config
