@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:satellite_view/core/theme/custom_colors.dart';
 import 'package:satellite_view/mob_ads/interstitial_ads/interstitial_ad_mob.dart';
 import '../../../../widgets/custom_button.dart';
@@ -46,7 +45,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
             Positioned(
-              top: MediaQuery.of(context).size.height <= 700 ? 10 : 50,
+              top: MediaQuery.of(context).size.height <= 700 ? 20 : 50,
               child: Text(
                 "Live Satellite View",
                 textScaleFactor: 2.0,
@@ -83,56 +82,162 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     end: Alignment.center,
                   ),
                 ),
+                // child: Padding(
+                //   padding: const EdgeInsets.symmetric(horizontal: 8),
+                //   child: Column(
+                //     spacing: 5,
+                //     children: [
+                //       // const Spacer(),
+                //       Text(
+                //         "Welcome To Satellite View\nCommunity🎉",
+                //         textScaleFactor: 2,
+                //         textAlign: TextAlign.center,
+                //         style: Theme.of(context).textTheme.bodySmall
+                //             ?.copyWith(
+                //           color: CustomColors.primaryColor,
+                //           fontSize: 10,
+                //           fontWeight: FontWeight.bold,
+                //         ),
+                //       ),
+                //       SizedBox(height: 10),
+                //       buildRow(
+                //         context,
+                //         text:
+                //         "The Live Satellite View app delivers ultra-high-resolution real-time satellite imagery, enabling users to explore any location on Earth with smooth zoom and pan controls.",
+                //       ),
+                //       buildRow(
+                //         context,
+                //         text:
+                //         "Track moving objects like vehicles, ships, or aircraft live from space, with refresh rates as fast as 1 second for critical monitoring.",
+                //       ),
+                //       buildRow(
+                //         context,
+                //         text:
+                //         "Overlay weather patterns, cloud cover, wildfire hotspots, and urban heatmaps directly on the satellite view.",
+                //       ),
+                //       buildRow(
+                //         context,
+                //         text:
+                //         "The app also supports historical satellite replay, offline cached map tiles, and AI-powered location recognition a complete Earth observation platform in your pocket.",
+                //       ),
+                //       buildRow(
+                //         context,
+                //         text:
+                //         "Need help?💬, Our support team is always here to assist you, 24/7.",
+                //       ),
+                //       SizedBox(height: 2),
+                //       CustomButton(
+                //         text: "Let's Go",
+                //         onPressed: () async{
+                //           final shouldShowAd = await AdFrequencyManager.shouldShowAd('initial', fx: 1);
+                //           if (shouldShowAd) {
+                //             InterstitialAdMob.showInterstitialAd(onComplete: (){
+                //               Navigator.pushAndRemoveUntil(
+                //                 context,
+                //                 MaterialPageRoute(
+                //                   builder: (_) => BottomNavBarScreen(),
+                //                 ),
+                //                     (r) => false,
+                //               );
+                //             });
+                //           } else {
+                //             Navigator.pushAndRemoveUntil(
+                //               context,
+                //               MaterialPageRoute(
+                //                 builder: (_) => BottomNavBarScreen(),
+                //               ),
+                //                   (r) => false,
+                //             );
+                //           }
+                //           },
+                //         isLoading: false,
+                //       ),
+                //       SizedBox(height: 1),
+                //     ],
+                //   ),
+                // ),
+
+                /// kk
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Column(
-                    spacing: 5,
-                    children: [
-                      const Spacer(),
-                      Text(
-                        "Welcome To Satellite View\nCommunity🎉",
-                        textScaleFactor: 2,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(
-                          color: CustomColors.primaryColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: 5,
+                      children: [
+                         SizedBox(
+                            height:  MediaQuery.of(context).size.height <= 700
+                                ? 30
+                                : 45,
                         ),
-                      ),
-                      SizedBox(height: 10),
-                      buildRow(
-                        context,
-                        text:
-                        "The Live Satellite View app delivers ultra-high-resolution real-time satellite imagery, enabling users to explore any location on Earth with smooth zoom and pan controls.",
-                      ),
-                      buildRow(
-                        context,
-                        text:
-                        "Track moving objects like vehicles, ships, or aircraft live from space, with refresh rates as fast as 1 second for critical monitoring.",
-                      ),
-                      buildRow(
-                        context,
-                        text:
-                        "Overlay weather patterns, cloud cover, wildfire hotspots, and urban heatmaps directly on the satellite view.",
-                      ),
-                      buildRow(
-                        context,
-                        text:
-                        "The app also supports historical satellite replay, offline cached map tiles, and AI-powered location recognition a complete Earth observation platform in your pocket.",
-                      ),
-                      buildRow(
-                        context,
-                        text:
-                        "Need help?💬, Our support team is always here to assist you, 24/7.",
-                      ),
-                      SizedBox(height: 2),
-                      CustomButton(
-                        text: "Let's Go",
-                        onPressed: () async{
-                          final shouldShowAd = await AdFrequencyManager.shouldShowAd('initial', fx: 1);
-                          if (shouldShowAd) {
-                            InterstitialAdMob.showInterstitialAd(onComplete: (){
+
+                        Text(
+                          "Welcome To Satellite View\nCommunity🎉",
+                          textScaleFactor: 2,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: CustomColors.primaryColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 15),
+
+                        buildRow(
+                          context,
+                          text:
+                          "The Live Satellite View app delivers ultra-high-resolution real-time satellite imagery, enabling users to explore any location on Earth with smooth zoom and pan controls.",
+                        ),
+
+                        buildRow(
+                          context,
+                          text:
+                          "Track moving objects like vehicles, ships, or aircraft live from space, with refresh rates as fast as 1 second for critical monitoring.",
+                        ),
+
+                        buildRow(
+                          context,
+                          text:
+                          "Overlay weather patterns, cloud cover, wildfire hotspots and urban heatmaps directly on the satellite view.",
+                        ),
+
+                        buildRow(
+                          context,
+                          text:
+                          "The app also supports historical satellite replay, offline cached map tiles, and AI-powered location recognition a complete Earth observation platform in your pocket.",
+                        ),
+
+                        buildRow(
+                          context,
+                          text:
+                          "Need help?💬, Our support team is always here to assist you, 24/7.",
+                        ),
+
+                        const SizedBox(height: 25),
+
+                        CustomButton(
+                          text: "Let's Go",
+                          onPressed: () async {
+                            final shouldShowAd =
+                            await AdFrequencyManager.shouldShowAd(
+                              'initial',
+                              fx: 1,
+                            );
+
+                            if (shouldShowAd) {
+                              InterstitialAdMob.showInterstitialAd(
+                                onComplete: () {
+                                  Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => BottomNavBarScreen(),
+                                    ),
+                                        (r) => false,
+                                  );
+                                },
+                              );
+                            } else {
                               Navigator.pushAndRemoveUntil(
                                 context,
                                 MaterialPageRoute(
@@ -140,27 +245,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 ),
                                     (r) => false,
                               );
-                            });
-                          } else {
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BottomNavBarScreen(),
-                              ),
-                                  (r) => false,
-                            );
-                          }
+                            }
                           },
-                        isLoading: false,
-                      ),
-                      SizedBox(height: 1),
-                    ],
+                          isLoading: false,
+                        ),
+
+                      ],
+                    ),
                   ),
                 ),
+
               ),
             ),
           ],
         ),
+
       ),
     );
   }
@@ -204,7 +303,7 @@ class _ScrollingImagesState extends State<ScrollingImages> {
     super.dispose();
   }
 
-  _autoScrollForward() {
+  void _autoScrollForward() {
     final currentPosition = _scrollController.offset;
     final endPosition = _scrollController.position.maxScrollExtent;
     scheduleMicrotask(() {
