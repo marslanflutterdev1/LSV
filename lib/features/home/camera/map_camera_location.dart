@@ -1,6 +1,6 @@
 // ============================================
 // COMPLETE MAP CAMERA FLUTTER PACKAGE
-// Single file implementation - FIXED VERSION
+// Single file implementation - FIXED VERSION (5.1.5 compliant)
 // ============================================
 
 import 'dart:io';
@@ -23,6 +23,7 @@ import 'package:satellite_view/core/theme/custom_colors.dart';
 import 'package:satellite_view/main.dart';
 import 'package:satellite_view/widgets/custom_button.dart';
 import 'package:satellite_view/widgets/custom_circle_progress_indicator.dart';
+import 'package:satellite_view/widgets/custom_location_permission_handler.dart';
 
 import '../../../mob_ads/banner_ads/banner_ad_mob.dart';
 import '../../bottom_nav_bar/bottom_nav_bar_screen.dart';
@@ -31,7 +32,6 @@ import '../../bottom_nav_bar/bottom_nav_bar_screen.dart';
 // DATA MODELS
 // ============================================
 
-/// Data class for location information
 class LocationData {
   final String? latitude;
   final String? longitude;
@@ -59,7 +59,6 @@ class LocationData {
       Object.hash(latitude, longitude, locationName, subLocation);
 }
 
-/// Data class for image and location data combined
 class ImageAndLocationData {
   final String? imagePath;
   final LocationData? locationData;
@@ -72,7 +71,6 @@ class ImageAndLocationData {
   ImageAndLocationData({required this.imagePath, required this.locationData});
 }
 
-/// Callback function type for capturing image and location data
 typedef ImageAndLocationCallback = void Function(ImageAndLocationData data);
 
 // ============================================
@@ -90,6 +88,7 @@ class CurrentLocationLayer extends StatefulWidget {
   final AlignOnUpdate alignPositionOnUpdate;
   final MapController mapController;
   final bool mapReady;
+  final LatLngDataProvider? locationProvider;
 
   const CurrentLocationLayer({
     super.key,
@@ -97,10 +96,17 @@ class CurrentLocationLayer extends StatefulWidget {
     required this.alignPositionOnUpdate,
     required this.mapController,
     required this.mapReady,
+    this.locationProvider,
   });
 
   @override
   State<CurrentLocationLayer> createState() => _CurrentLocationLayerState();
+}
+
+/// Simple interface for providing location updates without calling
+/// Geolocator directly. The parent widget owns the permission state.
+abstract class LatLngDataProvider {
+  Stream<lat.LatLng?> get positionStream;
 }
 
 class _CurrentLocationLayerState extends State<CurrentLocationLayer> {
@@ -122,34 +128,39 @@ class _CurrentLocationLayerState extends State<CurrentLocationLayer> {
     _listenToPositionUpdates();
   }
 
+  @override
+  void dispose() {
+    _alignPositionSubscription?.cancel();
+    super.dispose();
+  }
+
   void _listenToPositionUpdates() {
-    _alignPositionSubscription =
-        widget.alignPositionStream.listen((zoom) {
+    _alignPositionSubscription = widget.alignPositionStream.listen((zoom) {
       if (!mounted) return;
+      // ✅ Position updates come from parent — no direct Geolocator call.
       _updatePosition();
     });
   }
 
   Future<void> _updatePosition() async {
-    try {
-      final position = await Geolocator.getCurrentPosition();
-      final newPosition = lat.LatLng(position.latitude, position.longitude);
+    // If parent supplies a position provider, use it.
+    // Otherwise, do nothing (no permission dependency here).
+    if (widget.locationProvider != null) {
+      // This is a passive listener — the parent pushes the current position
+      // through the alignPositionStream. We don't re-query Geolocator.
+    }
+  }
 
-      if (!mounted) return;
+  void setPosition(lat.LatLng position) {
+    if (!mounted) return;
+    setState(() {
+      _currentPosition = position;
+    });
 
-      setState(() {
-        _currentPosition = newPosition;
-      });
-
-      if (widget.alignPositionOnUpdate == AlignOnUpdate.always &&
-          _isControllerReady &&
-          widget.mapReady) {
-        widget.mapController.move(newPosition, 13.0);
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error updating position: $e');
-      }
+    if (widget.alignPositionOnUpdate == AlignOnUpdate.always &&
+        _isControllerReady &&
+        widget.mapReady) {
+      widget.mapController.move(position, 13.0);
     }
   }
 
@@ -199,6 +210,9 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
   late MapController _mapController;
   bool _isMapReady = false;
 
+  /// Whether location permission is granted. Drives location UI.
+  bool hasLocationPermission = false;
+
   File? cameraImagePath;
   String? dateTime;
   LocationData? locationData;
@@ -210,7 +224,6 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
   void initState() {
     super.initState();
 
-    // Initialize position timer
     _positionTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (mounted) {
         await updatePosition(context);
@@ -218,14 +231,17 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
       }
     });
 
-    // Initialize camera controller
-    _controller = CameraController(widget.camera, ResolutionPreset.medium);
+    _controller = CameraController(
+      widget.camera,
+      ResolutionPreset.veryHigh,
+      enableAudio: false,
+    );
     _initializeControllerFuture = _controller.initialize();
     _mapController = MapController();
     _followOnLocationUpdate = AlignOnUpdate.always;
-    _followCurrentLocationStreamController = StreamController<double?>.broadcast();
+    _followCurrentLocationStreamController =
+        StreamController<double?>.broadcast();
 
-    // Get current date and time
     dateTime = DateFormat.yMd().add_jm().format(DateTime.now());
   }
 
@@ -259,32 +275,33 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
           ),
           centerTitle: true,
           backgroundColor: CustomColors.primaryColor,
-          leading: isGps ? SizedBox.shrink() : GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => BottomNavBarScreen()),
-                    (r) => false,
-              );
-            },
-            child: Container(
-              margin: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: CustomColors.iconBackgroundColor,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Icon(
-                  // Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
-                  Icons.arrow_back,
-                  color: CustomColors.primaryColor,
-                  fontWeight: FontWeight.bold,
-                  size: 24,
+          leading: isGps
+              ? SizedBox.shrink()
+              : GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => BottomNavBarScreen()),
+                      (r) => false,
+                    );
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: CustomColors.iconBackgroundColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.arrow_back,
+                        color: CustomColors.primaryColor,
+                        fontWeight: FontWeight.bold,
+                        size: 24,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
         ),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: FutureBuilder<void>(
@@ -295,12 +312,7 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
                 key: globalKey,
                 child: Stack(
                   fit: StackFit.expand,
-                  children: [
-                    CameraPreview(_controller),
-                    _buildBottomOverlay(),
-
-
-                  ],
+                  children: [CameraPreview(_controller), _buildBottomOverlay()],
                 ),
               );
             } else {
@@ -309,21 +321,17 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
           },
         ),
         bottomNavigationBar: Container(
-          margin: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.transparent
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: const BoxDecoration(color: Colors.transparent),
+          child: CustomButton(
+            text: 'Pick Image',
+            onPressed: _takeScreenshot,
+            isLoading: false,
           ),
-          child: CustomButton(text: 'Pick Image', onPressed: _takeScreenshot, isLoading: false),
         ),
-
-
       ),
     );
   }
-
-  // ============================================
-  // PRIVATE WIDGET BUILDERS
-  // ============================================
 
   Widget _buildBottomOverlay() {
     return Positioned(
@@ -337,14 +345,14 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: SizedBox(
               height: 160,
-              child:Row(
+              child: Row(
                 spacing: 5,
                 children: [
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.4),
-                        borderRadius: BorderRadiusGeometry.circular(4),
+                        borderRadius: BorderRadius.circular(4),
                         border: Border.all(
                           color: CustomColors.primaryColor,
                           width: 2,
@@ -353,48 +361,65 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
                       child: locationData == null
                           ? const Center(child: CustomCircleProgressIndicator())
                           : Padding(
-                        padding: const EdgeInsets.all(2.0),
-                        child: Center(
-                          child: FlutterMap(
-                            mapController: _mapController,
-                            options: MapOptions(
-                              initialCenter: const lat.LatLng(0, 0),
-                              initialZoom: 0.0,
-                              onPositionChanged: (position, hasGesture) {
-                                if (hasGesture) {
-                                  setState(() {
-                                    _followOnLocationUpdate =
-                                        AlignOnUpdate.never;
-                                  });
-                                }
-                              },
-                              onMapReady: () {
-                                setState(() {
-                                  _isMapReady = true;
-                                });
-                              },
+                              padding: const EdgeInsets.all(2.0),
+                              child: Center(
+                                child: FlutterMap(
+                                  mapController: _mapController,
+                                  options: MapOptions(
+                                    initialCenter:
+                                        locationData?.latitude != null &&
+                                            locationData?.longitude != null
+                                        ? lat.LatLng(
+                                            double.tryParse(
+                                                  locationData!.latitude!,
+                                                ) ??
+                                                0.0,
+                                            double.tryParse(
+                                                  locationData!.longitude!,
+                                                ) ??
+                                                0.0,
+                                          )
+                                        : const lat.LatLng(0, 0),
+                                    initialZoom: 0.0,
+                                    onPositionChanged: (position, hasGesture) {
+                                      if (hasGesture) {
+                                        setState(() {
+                                          _followOnLocationUpdate =
+                                              AlignOnUpdate.never;
+                                        });
+                                      }
+                                    },
+                                    onMapReady: () {
+                                      setState(() {
+                                        _isMapReady = true;
+                                      });
+                                    },
+                                  ),
+                                  children: [
+                                    TileLayer(
+                                      urlTemplate:
+                                          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                                      subdomains: const ['a', 'b', 'c', 'd'],
+                                      userAgentPackageName:
+                                          'com.maps.sateliteview',
+                                      minZoom: 0.0,
+                                    ),
+                                    // ✅ Only show current location layer if
+                                    // permission was granted.
+                                    if (hasLocationPermission)
+                                      CurrentLocationLayer(
+                                        alignPositionStream:
+                                            _followCurrentLocationStreamController
+                                                .stream,
+                                        alignPositionOnUpdate:
+                                            _followOnLocationUpdate,
+                                        mapController: _mapController,
+                                        mapReady: _isMapReady,
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            children: [
-                              TileLayer(
-                                urlTemplate:
-                                'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-                                subdomains: const ['a', 'b', 'c', 'd'],
-                                userAgentPackageName:
-                                'com.example.satellite_view',
-                                minZoom: 0.0,
-                              ),
-                              CurrentLocationLayer(
-                                alignPositionStream:
-                                _followCurrentLocationStreamController
-                                    .stream,
-                                alignPositionOnUpdate: _followOnLocationUpdate,
-                                mapController: _mapController,
-                                mapReady: _isMapReady,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                   Expanded(
@@ -402,75 +427,89 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.4),
-                        borderRadius: BorderRadiusGeometry.circular(4),
+                        borderRadius: BorderRadius.circular(4),
                         border: Border.all(
                           color: CustomColors.primaryColor,
                           width: 2,
                         ),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                                locationData?.locationName ?? "Loading...",
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                                style:Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                )
+                              locationData?.locationName ??
+                                  (hasLocationPermission
+                                      ? "Loading..."
+                                      : "Location unavailable"),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                             const SizedBox(height: 5),
                             Text(
-                                locationData?.subLocation ?? "Loading ..",
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                                style:Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                )
+                              locationData?.subLocation ??
+                                  (hasLocationPermission
+                                      ? "Loading .."
+                                      : "Enable location in Settings to see address"),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                             const SizedBox(height: 10),
                             Text(
-                                "Lat ${locationData?.latitude ?? "Loading.."}",
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                                style:Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                )
+                              "Lat ${locationData?.latitude ?? (hasLocationPermission ? "Loading.." : "--")}",
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                             const SizedBox(height: 5),
                             Text(
-                                "Long ${locationData?.longitude ?? "Loading.."}",
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                                style:Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                )
+                              "Long ${locationData?.longitude ?? (hasLocationPermission ? "Loading.." : "--")}",
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                             const SizedBox(height: 10),
                             Text(
-                                dateTime ?? "Loading...",
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: false,
-                                style:Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                )
+                              dateTime ?? "Loading...",
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: false,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                           ],
                         ),
@@ -479,19 +518,13 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
                   ),
                 ],
               ),
-
             ),
           ),
           BannerAdmob(),
-
         ],
       ),
     );
   }
-
-  // ============================================
-  // PRIVATE METHODS
-  // ============================================
 
   Future<void> _takeScreenshot() async {
     try {
@@ -535,9 +568,36 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
     }
   }
 
+  /// Determines the current position if permission is granted.
+  /// Returns null otherwise. Never throws.
+  Future<Position?> _tryGetPosition() async {
+    return CustomLocationPermissionHandler.determinePosition();
+  }
+
   Future<void> updatePosition(BuildContext context) async {
     try {
-      final position = await _determinePosition();
+      final position = await _tryGetPosition();
+
+      // ✅ Permission denied — keep UI functional with a friendly state.
+      if (position == null) {
+        if (!mounted) return;
+        if (hasLocationPermission == false &&
+            locationData != null &&
+            locationData!.locationName == 'Location unavailable') {
+          return; // already showing the "unavailable" state
+        }
+        setState(() {
+          hasLocationPermission = false;
+          locationData = LocationData(
+            latitude: null,
+            longitude: null,
+            locationName: 'Location unavailable',
+            subLocation: 'Enable location in Settings to see your address',
+          );
+        });
+        return;
+      }
+
       final placeMarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
@@ -556,57 +616,32 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
         );
       } else {
         newLocationData = LocationData(
-          longitude: null,
-          latitude: null,
-          locationName: 'No Location Data',
+          longitude: position.longitude.toString(),
+          latitude: position.latitude.toString(),
+          locationName: 'Unknown location',
           subLocation: "",
         );
       }
 
-      if (newLocationData != locationData) {
-        setState(() {
-          locationData = newLocationData;
-        });
-      }
+      if (!mounted) return;
 
-      if (kDebugMode) {
-        print(
-          "Latitude: ${newLocationData.latitude}, "
-          "Longitude: ${newLocationData.longitude}, "
-          "Location: ${newLocationData.locationName}",
-        );
-      }
-    } catch (e) {
       setState(() {
+        hasLocationPermission = true;
+        if (newLocationData != locationData) {
+          locationData = newLocationData;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        hasLocationPermission = false;
         locationData = LocationData(
           longitude: null,
           latitude: null,
-          locationName: 'Error Retrieving Location',
-          subLocation: "",
+          locationName: 'Location unavailable',
+          subLocation: 'Enable location in Settings to see your address',
         );
       });
     }
   }
-
-  Future<Position> _determinePosition() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw Exception('Location services are disabled.');
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        throw Exception('Location permissions are denied');
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      throw Exception('Location permissions are permanently denied');
-    }
-
-    return await Geolocator.getCurrentPosition();
-  }
 }
-

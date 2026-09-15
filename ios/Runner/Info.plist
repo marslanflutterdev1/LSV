@@ -26,10 +26,6 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs access to your location to show it on the map.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>This app needs access to your microphone to convert your voice to text for address input.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -82,40 +78,26 @@
 
     <!-- ============================= -->
     <!-- Location Permission -->
-    <!-- Required for:
-         geolocator
-         google_maps_flutter
-         flutter_map
-         flutter_compass
-         geocoding
-         flutter_polyline_points
-    -->
+    <!-- Optional: Used to display your current position on maps and for nearby place search -->
     <!-- ============================= -->
 
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Your location is used to display your current position, nearby places, maps, navigation, and route guidance.</string>
-
-    <!-- Add ONLY if background location is used -->
-    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>Your location is used during active navigation to provide continuous route guidance.</string>
+    <string>Live Satellite View uses your location to show your position on the map and provide location-based features such as nearby places and route navigation.</string>
 
     <!-- ============================= -->
     <!-- Camera -->
     <!-- camera package -->
     <!-- ============================= -->
-
     <key>NSCameraUsageDescription</key>
-    <string>This app uses the camera to capture photos and videos.</string>
+    <string>Live Satellite View uses the camera to capture photos when you use the Camera feature.</string>
 
     <!-- ============================= -->
     <!-- Microphone -->
-    <!-- speech_to_text
-         camera (video recording)
-    -->
+    <!-- speech_to_text and camera (video recording) -->
     <!-- ============================= -->
 
     <key>NSMicrophoneUsageDescription</key>
-    <string>This app uses the microphone for voice search, speech recognition, and video recording.</string>
+    <string>This app uses the microphone to convert your voice into text for search fields.</string>
 
     <!-- ============================= -->
     <!-- Speech Recognition -->
@@ -126,17 +108,6 @@
     <string>This app converts your speech into text for voice commands and search.</string>
 
     <!-- ============================= -->
-    <!-- Photo Library -->
-    <!-- share_plus / camera -->
-    <!-- ============================= -->
-
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>This app accesses your photo library when you choose images to share or upload.</string>
-
-    <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>This app saves images to your photo library when requested.</string>
-
-    <!-- ============================= -->
     <!-- App Transport Security -->
     <!-- ============================= -->
 
@@ -145,18 +116,6 @@
         <key>NSAllowsArbitraryLoads</key>
         <false/>
     </dict>
-
-    <!-- ============================= -->
-    <!-- Background Modes -->
-    <!-- Enable ONLY if your app actually
-         performs background navigation
-    -->
-    <!-- ============================= -->
-
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>location</string>
-    </array>
 
 </dict>
 </plist>

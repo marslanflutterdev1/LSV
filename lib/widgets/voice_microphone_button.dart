@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:satellite_view/core/services/voice_service.dart';
 import 'package:satellite_view/core/theme/custom_colors.dart';
-import 'package:satellite_view/widgets/custom_button.dart';
 import 'dart:developer' as developer;
-
-import 'package:satellite_view/widgets/custom_dialog_box.dart';
 
 class VoiceMicrophoneButton extends StatefulWidget {
   final TextEditingController controller;
@@ -39,7 +36,6 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    
     _waveAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
@@ -57,14 +53,14 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
   Widget build(BuildContext context) {
     return Consumer<VoiceService>(
       builder: (context, voiceService, _) {
-        // Handle when listening stops (automatically or manually)
-        if (_wasListening && !voiceService.isListening && !_hasRetrievedFinalText) {
+        if (_wasListening &&
+            !voiceService.isListening &&
+            !_hasRetrievedFinalText) {
           _hasRetrievedFinalText = true;
           _isLocallyListening = false;
           _waveAnimationController.stop();
           _waveAnimationController.reset();
-          
-          // Retrieve text in next frame to ensure state is updated
+
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               _retrieveAndUpdateText(voiceService);
@@ -72,23 +68,22 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
           });
         }
 
-        // Track listening state for next build
         _wasListening = voiceService.isListening;
 
         return Padding(
           padding: const EdgeInsets.only(right: 8.0),
           child: Tooltip(
-            message: voiceService.isListening ? 'Stop recording' : 'Start recording',
+            message: voiceService.isListening
+                ? 'Stop recording'
+                : 'Start recording',
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Wave animation - only show when locally listening
-                if (_isLocallyListening)
-                  ..._buildWaveCircles(),
-                
-                // Microphone button
+                if (_isLocallyListening) ..._buildWaveCircles(),
                 IconButton(
-                  onPressed: _isProcessing ? null : () async => _handleMicTap(voiceService),
+                  onPressed: _isProcessing
+                      ? null
+                      : () async => _handleMicTap(voiceService),
                   icon: AnimatedBuilder(
                     animation: _micAnimationController,
                     builder: (context, child) {
@@ -96,7 +91,9 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
                         Icons.mic,
                         color: _isLocallyListening
                             ? CustomColors.primaryColor
-                            : (_isProcessing ? Colors.grey.shade400 : Colors.grey),
+                            : (_isProcessing
+                            ? Colors.grey.shade400
+                            : Colors.grey),
                         size: _isLocallyListening
                             ? 24 + (_micAnimationController.value * 2)
                             : 24,
@@ -114,7 +111,6 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
 
   List<Widget> _buildWaveCircles() {
     return [
-      // Wave 1 - largest
       AnimatedBuilder(
         animation: _waveAnimationController,
         builder: (context, child) {
@@ -137,12 +133,11 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
           );
         },
       ),
-      
-      // Wave 2 - medium
       AnimatedBuilder(
         animation: _waveAnimationController,
         builder: (context, child) {
-          final delayedValue = (_waveAnimationController.value - 0.3).clamp(0.0, 1.0);
+          final delayedValue =
+          (_waveAnimationController.value - 0.3).clamp(0.0, 1.0);
           return Transform.scale(
             scale: 1 + (delayedValue * 1.2),
             child: Opacity(
@@ -167,35 +162,36 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
 
   Future<void> _handleMicTap(VoiceService voiceService) async {
     setState(() => _isProcessing = true);
-    
+
     try {
+      // ✅ Clear any stale error from a previous denied attempt.
+      // This ensures a fresh check whenever the user taps the mic.
+      voiceService.resetErrorState();
+
       if (_isLocallyListening) {
         await _stopListening(voiceService);
       } else {
-        // First use check
         if (!voiceService.isInitialized) {
-          _showInfoDialog(
-            'Initializing Voice Recognition',
-            'Please wait while speech recognition is being set up for the first time.',
-          );
+          // Silent initialization — no blocking dialog.
           await voiceService.initializeSpeechToText();
-          
+
           if (!voiceService.isInitialized) {
-            _showErrorDialog(
-              voiceService.error ?? 
-              'Voice recognition not available. Ensure Google Play Services is installed on your device.'
+            _showInfoMessage(
+              voiceService.error ??
+                  'Voice input is unavailable. You can type your search instead.',
             );
-            if (mounted) {
-              setState(() => _isProcessing = false);
-            }
+            if (mounted) setState(() => _isProcessing = false);
             return;
           }
         }
-        
+
         await _startListening(voiceService);
       }
     } catch (e) {
-      _showErrorDialog(e.toString());
+      // Never crash, never show a dialog.
+      _showInfoMessage(
+        'Voice input is unavailable. You can type your search instead.',
+      );
     } finally {
       if (mounted) {
         setState(() => _isProcessing = false);
@@ -205,24 +201,21 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
 
   Future<void> _startListening(VoiceService voiceService) async {
     if (voiceService.error != null) {
-      _showErrorDialog(voiceService.error ?? 'Unknown error');
+      _showInfoMessage(voiceService.error ?? 'Voice input is unavailable.');
       return;
     }
 
-    // Reset the flag for this new listening session
     _hasRetrievedFinalText = false;
-
-    // Set local listening state
     setState(() => _isLocallyListening = true);
 
     _micAnimationController.repeat(reverse: true);
     _waveAnimationController.repeat();
     widget.onListeningStart?.call();
-    
+
     await voiceService.startListening();
 
     if (voiceService.error != null && mounted) {
-      _showErrorDialog(voiceService.error ?? 'Failed to start listening');
+      _showInfoMessage(voiceService.error ?? 'Voice input is unavailable.');
       _micAnimationController.stop();
       _micAnimationController.reset();
       _waveAnimationController.stop();
@@ -231,7 +224,6 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
       return;
     }
 
-    // Auto stop after 20 seconds (fallback if final result doesn't trigger auto-stop)
     Future.delayed(const Duration(seconds: 4), () {
       if (mounted && _isLocallyListening) {
         _stopListening(voiceService);
@@ -240,33 +232,28 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
   }
 
   Future<void> _retrieveAndUpdateText(VoiceService voiceService) async {
-    // Stop the animation
     if (_micAnimationController.isAnimating) {
       _micAnimationController.stop();
       _micAnimationController.reset();
     }
-    
     if (_waveAnimationController.isAnimating) {
       _waveAnimationController.stop();
       _waveAnimationController.reset();
     }
-    
+
     widget.onListeningEnd?.call();
 
-    // Get the recognized text
     final recognizedText = voiceService.recognizedText;
-    
+
     if (recognizedText.isNotEmpty) {
-      // Update the text field
       widget.controller.text = recognizedText;
       _showSuccessMessage(recognizedText);
-      developer.log('VoiceMicrophoneButton: Text updated to: $recognizedText');
-      
-      // Clear the text from service
+      developer.log(
+        'VoiceMicrophoneButton: Text updated to: $recognizedText',
+      );
       voiceService.getTextAndReset();
     } else {
       _showInfoMessage('No speech detected. Please try again.');
-      developer.log('VoiceMicrophoneButton: No recognized text');
     }
   }
 
@@ -280,14 +267,13 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
     _waveAnimationController.stop();
     _waveAnimationController.reset();
     widget.onListeningEnd?.call();
-    
+
     setState(() => _isLocallyListening = false);
-    
+
     await voiceService.stopListening();
 
     if (!mounted) return;
 
-    // Update the text field with recognized text
     final recognizedText = voiceService.getTextAndReset();
     if (recognizedText.isNotEmpty) {
       widget.controller.text = recognizedText;
@@ -297,90 +283,18 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
     }
   }
 
-  void _showErrorDialog(String message) {
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (_) => CustomDialogBox(
-        icon: Center(
-          child: Text('Voice Input Error',
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(
-              color: CustomColors.primaryColor,
-              fontWeight: FontWeight.bold,
-
-            ),),
-        ),
-        title:Padding(
-          padding: const EdgeInsets.only(top: 10),
-          child: Text(message),
-        ),
-        titleTextStyle: Theme.of(context)
-            .textTheme
-            .bodyMedium
-            ?.copyWith(
-        ),
-        content: SizedBox.shrink(),
-        actions: [
-          CustomButton(
-            text: 'Ok',
-            isLoading: false,
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showInfoDialog(String title, String message) {
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (_) => CustomDialogBox(
-        icon: Center(
-          child: Text(title,
-            style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(
-            color: CustomColors.primaryColor,
-            fontWeight: FontWeight.bold,
-
-          ),),
-        ),
-        title:Padding(
-          padding: const EdgeInsets.only(top: 10),
-          child: Text(message),
-        ),
-        titleTextStyle: Theme.of(context)
-            .textTheme
-            .bodyMedium
-            ?.copyWith(
-        ),
-        content: SizedBox.shrink(),
-        actions: [
-          CustomButton(
-            text: 'Ok',
-            isLoading: false,
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showSuccessMessage(String text) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Recognized Text: $text', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: CustomColors.white, fontWeight: FontWeight.bold),),
+        content: Text(
+          'Recognized Text: $text',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: CustomColors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         duration: const Duration(seconds: 2),
         backgroundColor: CustomColors.primaryColor,
       ),
@@ -392,9 +306,15 @@ class _VoiceMicrophoneButtonState extends State<VoiceMicrophoneButton>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: CustomColors.white, fontWeight: FontWeight.bold)),
-        duration: const Duration(seconds: 2),
-        backgroundColor: CustomColors.grey,
+        content: Text(
+          message,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: CustomColors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        duration: const Duration(seconds: 3),
+        backgroundColor: CustomColors.black.withOpacity(0.5),
       ),
     );
   }

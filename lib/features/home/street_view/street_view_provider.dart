@@ -28,10 +28,13 @@ class StreetViewProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final jsonString = await rootBundle.loadString('assets/json/countries.json');
+      final jsonString =
+      await rootBundle.loadString('assets/json/countries.json');
       final List<dynamic> decoded = json.decode(jsonString) as List<dynamic>;
       _countries.clear();
-      _countries.addAll(decoded.map((dynamic item) => Country.fromJson(item as Map<String, dynamic>)));
+      _countries.addAll(decoded.map(
+            (dynamic item) => Country.fromJson(item as Map<String, dynamic>),
+      ));
       _hasError = false;
     } catch (_) {
       _hasError = true;
@@ -94,7 +97,8 @@ class Country {
       countryName: json['countryName'] as String? ?? '',
       flagImage: json['flagImage'] as String?,
       places: rawPlaces
-          .map((dynamic placeJson) => Place.fromJson(placeJson as Map<String, dynamic>))
+          .map((dynamic placeJson) =>
+          Place.fromJson(placeJson as Map<String, dynamic>))
           .toList(),
     );
   }

@@ -13,7 +13,6 @@ import 'package:satellite_view/globle/globle_pop_scope_provider.dart';
 import 'package:satellite_view/local/local_sp.dart';
 import 'package:satellite_view/mob_ads/app_open_ads/open_app_ad_mob.dart';
 import 'package:satellite_view/mob_ads/firebase_remote_configration/firebase_remote_configration.dart';
-import 'package:satellite_view/widgets/custom_location_permission_handler.dart';
 
 import 'core/theme/custom_theme.dart';
 import 'core/theme/custom_theme_provider.dart';
@@ -60,9 +59,6 @@ void main() async {
   /// Set orientation FIRST (non-blocking)
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  /// Get Current User Location Permission.
-  final position = await CustomLocationPermissionHandler.determinePosition();
-  log('Position = ${position.latitude} : ${position.longitude}');
 
   /// Launch features immediately
   runApp(AppInfo(data: await AppInfoData.get(), child: const MyApp()));

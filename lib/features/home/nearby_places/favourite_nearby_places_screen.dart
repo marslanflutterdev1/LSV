@@ -15,13 +15,19 @@ class FavouriteNearbyPlacesScreen extends StatefulWidget {
   final String placeTitle;
   final String bannerUnitId;
 
-  const FavouriteNearbyPlacesScreen({super.key, required this.placeTitle, required this.bannerUnitId});
+  const FavouriteNearbyPlacesScreen({
+    super.key,
+    required this.placeTitle,
+    required this.bannerUnitId,
+  });
 
   @override
-  State<FavouriteNearbyPlacesScreen> createState() => _FavouriteNearbyPlacesScreenState();
+  State<FavouriteNearbyPlacesScreen> createState() =>
+      _FavouriteNearbyPlacesScreenState();
 }
 
-class _FavouriteNearbyPlacesScreenState extends State<FavouriteNearbyPlacesScreen> {
+class _FavouriteNearbyPlacesScreenState
+    extends State<FavouriteNearbyPlacesScreen> {
   Set<Marker> markers = {};
   LatLng? currentLatLng;
   CameraPosition? cameraPosition;
@@ -29,12 +35,17 @@ class _FavouriteNearbyPlacesScreenState extends State<FavouriteNearbyPlacesScree
   BitmapDescriptor? homeMarker;
   BitmapDescriptor? nearbyMarker;
 
+  /// Whether location permission is granted. Drives UI decisions.
+  bool hasLocationPermission = false;
+
+  /// Default fallback region (used when permission is denied).
+  static const LatLng _defaultLatLng = LatLng(31.5204, 74.3587);
+
   @override
   void initState() {
     super.initState();
     setUpCustomMarker();
     getCurrentLocation();
-
   }
 
   @override
@@ -54,16 +65,29 @@ class _FavouriteNearbyPlacesScreenState extends State<FavouriteNearbyPlacesScree
       targetWidth: 60,
       targetHeight: 60,
     );
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<void> getCurrentLocation() async {
     try {
-      final position = await CustomLocationPermissionHandler.determinePosition();
+      final position =
+      await CustomLocationPermissionHandler.determinePosition();
+
+      // ✅ Permission denied — keep app functional with default region.
+      if (position == null) {
+        if (!mounted) return;
+        setState(() {
+          hasLocationPermission = false;
+          currentLatLng = _defaultLatLng;
+          cameraPosition = CameraPosition(target: _defaultLatLng, zoom: 10);
+        });
+        return;
+      }
+
+      hasLocationPermission = true;
       currentLatLng = LatLng(position.latitude, position.longitude);
       cameraPosition = CameraPosition(target: currentLatLng!, zoom: 10);
 
-      // ✅ Add home marker immediately on location fetch
       markers.add(
         Marker(
           markerId: const MarkerId('current_location'),
@@ -76,20 +100,24 @@ class _FavouriteNearbyPlacesScreenState extends State<FavouriteNearbyPlacesScree
         ),
       );
 
+      if (!mounted) return;
       setState(() {});
       await searchNearbyPlaces();
     } catch (e) {
-      if (mounted) {
-        CustomCherryToast.error(context, title: 'Failed to get location: $e');
-      }
+      if (!mounted) return;
+      // Fail-safe: still show map with default region.
+      setState(() {
+        hasLocationPermission = false;
+        currentLatLng = _defaultLatLng;
+        cameraPosition = CameraPosition(target: _defaultLatLng, zoom: 10);
+      });
     }
   }
 
   void updateMarkers(NearByPlacesModel model) {
     markers.clear();
 
-    // ✅ Re-add home marker after clear
-    if (currentLatLng != null) {
+    if (currentLatLng != null && hasLocationPermission) {
       markers.add(
         Marker(
           markerId: const MarkerId('current_location'),
@@ -121,26 +149,19 @@ class _FavouriteNearbyPlacesScreenState extends State<FavouriteNearbyPlacesScree
             title: place.name ?? 'Unknown Place',
             snippet: place.vicinity ?? '',
           ),
-          icon: nearbyMarker ??
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon:  BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose),
         ),
       );
     }
 
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<void> searchNearbyPlaces() async {
-    if (currentLatLng == null) {
-      if (mounted) CustomCherryToast.warning(context, title: 'Location not ready');
-      return;
-    }
+    if (currentLatLng == null) return;
 
     final searchText = widget.placeTitle.trim();
-    if (searchText.isEmpty) {
-      if (mounted) CustomCherryToast.warning(context, title: 'Please enter a place type');
-      return;
-    }
+    if (searchText.isEmpty) return;
 
     final provider = Provider.of<NearbyPlacesProvider>(context, listen: false);
 
@@ -173,7 +194,6 @@ class _FavouriteNearbyPlacesScreenState extends State<FavouriteNearbyPlacesScree
         return SafeArea(
           top: false,
           child: Scaffold(
-
             appBar: AppBar(
               title: Text(
                 widget.placeTitle,
@@ -186,9 +206,7 @@ class _FavouriteNearbyPlacesScreenState extends State<FavouriteNearbyPlacesScree
               backgroundColor: CustomColors.primaryColor,
               leading: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: (){
-                  Navigator.pop(context);
-                },
+                onTap: () => Navigator.pop(context),
                 child: Container(
                   margin: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -197,7 +215,6 @@ class _FavouriteNearbyPlacesScreenState extends State<FavouriteNearbyPlacesScree
                   ),
                   child: Center(
                     child: Icon(
-                      // Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
                       Icons.arrow_back,
                       color: CustomColors.primaryColor,
                       fontWeight: FontWeight.bold,
@@ -217,17 +234,58 @@ class _FavouriteNearbyPlacesScreenState extends State<FavouriteNearbyPlacesScree
                 strokeWidth: 3,
               ),
             )
-                : GoogleMap(
-              initialCameraPosition: cameraPosition!,
-              myLocationEnabled: true,
-              tiltGesturesEnabled: true,
-              compassEnabled: true,
-              scrollGesturesEnabled: true,
-              zoomGesturesEnabled: true,
-              onMapCreated: (GoogleMapController controller) {
-                mapController = controller;
-              },
-              markers: markers,
+                : Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: cameraPosition!,
+                  // ✅ Conditional on permission
+                  myLocationEnabled: hasLocationPermission,
+                  tiltGesturesEnabled: true,
+                  compassEnabled: true,
+                  scrollGesturesEnabled: true,
+                  zoomGesturesEnabled: true,
+                  onMapCreated: (GoogleMapController controller) {
+                    mapController = controller;
+                  },
+                  markers: markers,
+                ),
+                // ✅ Non-blocking info banner when permission denied
+                if (!hasLocationPermission)
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 5,
+                        children: [
+                          const Text(
+                            'Location permission not granted.',
+                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.start,
+                          ),
+                          const Text(
+                            'Showing default area. Enable location in Settings to see nearby results around you.',
+                            style: TextStyle(
+                                color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.start,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
             bottomNavigationBar: BannerAdmob(),
           ),

@@ -71,22 +71,16 @@ class _AreaCalculatorScreenState extends State<AreaCalculatorScreen> {
                           target: LatLng(31.5204, 74.3587),
                           zoom: 15,
                         ),
-
                         mapType: MapType.satellite,
-
                         polygons: provider.polygons,
-
                         polylines: provider.polylines,
-
                         markers: provider.markers,
-
                         onTap: provider.addPoint,
-
-                        myLocationEnabled: true,
-
+                        // ✅ Area measurement does not need the user's live location.
+                        myLocationEnabled: false,
+                        myLocationButtonEnabled: false,
                         zoomControlsEnabled: false,
                       ),
-
                       Positioned(
                         bottom: 10,
                         left: 10,

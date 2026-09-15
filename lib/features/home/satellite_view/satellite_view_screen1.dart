@@ -1,17 +1,13 @@
 import 'dart:developer';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:satellite_view/core/theme/custom_colors.dart';
-import 'package:satellite_view/features/bottom_nav_bar/bottom_nav_bar_screen.dart';
 import 'package:satellite_view/features/home/satellite_view/satellite_view_provider.dart';
 import 'package:satellite_view/mob_ads/banner_ads/banner_ad_mob.dart';
 import 'package:satellite_view/widgets/custom_marker.dart';
 import 'package:custom_info_window/custom_info_window.dart';
-
 
 class SatelliteViewScreen1 extends StatefulWidget {
   const SatelliteViewScreen1({super.key});
@@ -22,7 +18,7 @@ class SatelliteViewScreen1 extends StatefulWidget {
 
 class _SatelliteViewScreen1State extends State<SatelliteViewScreen1> {
   CustomInfoWindowController customInfoWindowController =
-  CustomInfoWindowController();
+      CustomInfoWindowController();
   GoogleMapController? mapController;
   BitmapDescriptor? customMarker;
   LatLng latLng = LatLng(0.0, 0.0);
@@ -45,9 +41,9 @@ class _SatelliteViewScreen1State extends State<SatelliteViewScreen1> {
 
   Future<void> setUpCustomMarker() async {
     customMarker = await CustomMarker.setMarker(
-        path: 'assets/images/source_location.png',
-        targetWidth: 40,
-        targetHeight: 40
+      path: 'assets/images/source_location.png',
+      targetWidth: 40,
+      targetHeight: 40,
     );
 
     setState(() {});
@@ -99,120 +95,128 @@ class _SatelliteViewScreen1State extends State<SatelliteViewScreen1> {
             ),
             body: provider.isLocationLoaded
                 ? SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Stack(
+                    child: Column(
                       children: [
-                        GoogleMap(
-                          initialCameraPosition: CameraPosition(
-                            target: provider.currentLatLng,
-                            zoom: 0.0,
-                          ),
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              GoogleMap(
+                                initialCameraPosition: CameraPosition(
+                                  target: provider.currentLatLng,
+                                  zoom: 0.0,
+                                ),
 
-                          mapType: MapType.satellite,
-                          myLocationEnabled: true,
-                          myLocationButtonEnabled: true,
-                          zoomControlsEnabled: true,
-                          compassEnabled: true,
-                          mapToolbarEnabled: false,
-                          markers: {
-                            Marker(
-                              markerId:  MarkerId("current_location"),
-                              position: provider.currentLatLng,
-                              icon: customMarker ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet,),
-                              // onTap: () {
-                              //   customInfoWindowController.addInfoWindow?.call(
-                              //     Container(
-                              //       decoration: BoxDecoration(
-                              //         color: CustomColors.primaryColor,
-                              //         borderRadius: BorderRadius.circular(4),
-                              //       ),
-                              //       child: Padding(
-                              //         padding: const EdgeInsets.all(8.0),
-                              //         child: Row(
-                              //           mainAxisAlignment:
-                              //               MainAxisAlignment.start,
-                              //           mainAxisSize: MainAxisSize.min,
-                              //           children: [
-                              //             Icon(
-                              //               Icons.account_circle,
-                              //               color: Colors.white,
-                              //               size: 24,
-                              //             ),
-                              //             SizedBox(width: 6),
-                              //             Text(
-                              //               "I am here",
-                              //               style: Theme.of(context)
-                              //                   .textTheme
-                              //                   .bodyMedium
-                              //                   ?.copyWith(
-                              //                     color: Colors.white,
-                              //                     fontWeight: FontWeight.bold,
-                              //                   ),
-                              //             ),
-                              //           ],
-                              //         ),
-                              //       ),
-                              //     ),
-                              //     provider.currentLatLng,
-                              //   );
-                              // },
+                                mapType: MapType.satellite,
+                                myLocationEnabled:
+                                    provider.hasLocationPermission,
+                                myLocationButtonEnabled:
+                                    provider.hasLocationPermission,
+                                zoomControlsEnabled: true,
+                                compassEnabled: true,
+                                mapToolbarEnabled: false,
+                                markers: {
+                                  Marker(
+                                    markerId: MarkerId("current_location"),
+                                    position: provider.currentLatLng,
+                                    icon:
+                                        customMarker ??
+                                        BitmapDescriptor.defaultMarkerWithHue(
+                                          BitmapDescriptor.hueViolet,
+                                        ),
+                                    // onTap: () {
+                                    //   customInfoWindowController.addInfoWindow?.call(
+                                    //     Container(
+                                    //       decoration: BoxDecoration(
+                                    //         color: CustomColors.primaryColor,
+                                    //         borderRadius: BorderRadius.circular(4),
+                                    //       ),
+                                    //       child: Padding(
+                                    //         padding: const EdgeInsets.all(8.0),
+                                    //         child: Row(
+                                    //           mainAxisAlignment:
+                                    //               MainAxisAlignment.start,
+                                    //           mainAxisSize: MainAxisSize.min,
+                                    //           children: [
+                                    //             Icon(
+                                    //               Icons.account_circle,
+                                    //               color: Colors.white,
+                                    //               size: 24,
+                                    //             ),
+                                    //             SizedBox(width: 6),
+                                    //             Text(
+                                    //               "I am here",
+                                    //               style: Theme.of(context)
+                                    //                   .textTheme
+                                    //                   .bodyMedium
+                                    //                   ?.copyWith(
+                                    //                     color: Colors.white,
+                                    //                     fontWeight: FontWeight.bold,
+                                    //                   ),
+                                    //             ),
+                                    //           ],
+                                    //         ),
+                                    //       ),
+                                    //     ),
+                                    //     provider.currentLatLng,
+                                    //   );
+                                    // },
 
-                              // icon: customMarker ?? BitmapDescriptor.defaultMarker,
-                              infoWindow: InfoWindow(
-                                title: "📡 Live Satellite Position",
-                                snippet:
-                                "Lat: ${provider.currentLatLng.latitude.toStringAsFixed(5)}, "
-                                    "Lng: ${provider.currentLatLng.longitude.toStringAsFixed(5)}",
+                                    // icon: customMarker ?? BitmapDescriptor.defaultMarker,
+                                    infoWindow: InfoWindow(
+                                      title: "📡 Live Satellite Position",
+                                      snippet:
+                                          "Lat: ${provider.currentLatLng.latitude.toStringAsFixed(5)}, "
+                                          "Lng: ${provider.currentLatLng.longitude.toStringAsFixed(5)}",
+                                    ),
+                                  ),
+                                },
+                                onMapCreated: (controller) {
+                                  mapController = controller;
+                                  customInfoWindowController
+                                          .googleMapController =
+                                      controller;
+                                },
+                                onCameraMove: (CameraPosition cameraPosition) {
+                                  log(
+                                    'Camera Position: ${cameraPosition.target.longitude}:${cameraPosition.target.latitude}',
+                                  );
+                                  latLng = LatLng(
+                                    cameraPosition.target.latitude,
+                                    cameraPosition.target.longitude,
+                                  );
+                                },
+                                onCameraIdle: () {
+                                  log('Stop Camera');
+                                },
                               ),
-                            ),
-                          },
-                          onMapCreated: (controller) {
-                            mapController = controller;
-                            customInfoWindowController.googleMapController =
-                                controller;
-                          },
-                          onCameraMove: (CameraPosition cameraPosition) {
-                            log(
-                              'Camera Position: ${cameraPosition.target.longitude}:${cameraPosition.target.latitude}',
-                            );
-                            latLng = LatLng(
-                              cameraPosition.target.latitude,
-                              cameraPosition.target.longitude,
-                            );
-                          },
-                          onCameraIdle: () {
-                            log('Stop Camera');
-                          },
+                              CustomInfoWindow(
+                                controller: customInfoWindowController,
+                                height: 75,
+                                width: 150,
+                                offset: 50,
+                              ),
+                            ],
+                          ),
                         ),
-                        CustomInfoWindow(
-                          controller: customInfoWindowController,
-                          height: 75,
-                          width: 150,
-                          offset: 50,
-                        ),
+                        // adProvider.isLoadedHomeScreenBannerAds
+                        //     ? SizedBox(
+                        //   height: adProvider.satelliteViewScreenBannerAds.size.height.toDouble(),
+                        //   width: adProvider.satelliteViewScreenBannerAds.size.width.toDouble(),
+                        //   child: AdWidget(
+                        //     ad: adProvider.satelliteViewScreenBannerAds,
+                        //   ),
+                        // ) : SizedBox.shrink()
                       ],
                     ),
-                  ),
-                  // adProvider.isLoadedHomeScreenBannerAds
-                  //     ? SizedBox(
-                  //   height: adProvider.satelliteViewScreenBannerAds.size.height.toDouble(),
-                  //   width: adProvider.satelliteViewScreenBannerAds.size.width.toDouble(),
-                  //   child: AdWidget(
-                  //     ad: adProvider.satelliteViewScreenBannerAds,
-                  //   ),
-                  // ) : SizedBox.shrink()
-                ],
-              ),
-            )
+                  )
                 : Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 4,
-                color: CustomColors.primaryColor,
-              ),
-            ),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 4,
+                      color: CustomColors.primaryColor,
+                    ),
+                  ),
             bottomNavigationBar: BannerAdmob(),
+
             // bottomNavigationBar: SafeArea(
             //   child: Container(
             //     width: double.infinity,
@@ -284,7 +288,6 @@ class _SatelliteViewScreen1State extends State<SatelliteViewScreen1> {
             //     ),
             //   ),
             // ),
-
           ),
         );
       },

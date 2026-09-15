@@ -15,6 +15,11 @@ import 'route_polyline_segments.dart';
 class RouteFinderProvider extends ChangeNotifier {
   bool isLoading = false;
   bool isLiveTracking = false;
+
+  /// Whether location permission is granted.
+  /// Used by the UI to decide whether to show the blue dot / location button.
+  bool hasLocationPermission = false;
+
   Timer? _livePulseTimer;
   bool _livePulseVisible = true;
 
@@ -23,7 +28,6 @@ class RouteFinderProvider extends ChangeNotifier {
 
   /// CONTROLLERS
   TextEditingController sourceController = TextEditingController();
-
   TextEditingController destinationController = TextEditingController();
 
   /// MAP CONTROLLER
@@ -71,31 +75,23 @@ class RouteFinderProvider extends ChangeNotifier {
   bool isOffRoute = false;
 
   String get routeDistanceLabel {
-    if (totalDistanceMeters == null) {
-      return 'Distance —';
-    }
-
+    if (totalDistanceMeters == null) return 'Distance —';
     final meters = totalDistanceMeters!.toDouble();
     if (meters >= 1000) {
       final kilometers = meters / 1000;
       final precision = kilometers >= 10 ? 0 : 1;
       return '${kilometers.toStringAsFixed(precision)} km';
     }
-
     return '${meters.round()} m';
   }
 
   String get remainingDistanceLabel {
-    if (remainingDistanceMeters == null) {
-      return 'Remaining —';
-    }
-
+    if (remainingDistanceMeters == null) return 'Remaining —';
     if (remainingDistanceMeters! >= 1000) {
       final kilometers = remainingDistanceMeters! / 1000;
       final precision = kilometers >= 10 ? 0 : 1;
       return '${kilometers.toStringAsFixed(precision)} km remaining';
     }
-
     return '${remainingDistanceMeters!.round()} m remaining';
   }
 
@@ -104,20 +100,12 @@ class RouteFinderProvider extends ChangeNotifier {
       _wrongDestination = 'Enter wrong destination location.\nPlease try again';
       return 'Arrival —';
     }
-
     final estimatedSeconds = _calculateEtaSeconds();
-    if (estimatedSeconds <= 0) {
-      return 'Arriving now';
-    }
-
-    if (estimatedSeconds < 60) {
-      return 'Arriving now';
-    }
-
+    if (estimatedSeconds <= 0) return 'Arriving now';
+    if (estimatedSeconds < 60) return 'Arriving now';
     if (estimatedSeconds < 3600) {
       return '~${(estimatedSeconds / 60).round()} min';
     }
-
     final hours = estimatedSeconds ~/ 3600;
     final minutes = ((estimatedSeconds % 3600) / 60).round();
     return '~$hours hr $minutes min';
@@ -129,47 +117,24 @@ class RouteFinderProvider extends ChangeNotifier {
         remainingDistanceMeters == null) {
       return 0;
     }
-
     return (1 - (remainingDistanceMeters! / totalDistanceMeters!)).clamp(0, 1);
   }
 
   String get liveStatusLabel {
-    if (isLoading) {
-      return 'Planning route';
-    }
-
-    if (isRerouting) {
-      return 'Recalculating route';
-    }
-
-    if (isOffRoute) {
-      return 'Off route';
-    }
-
-    if (isLiveTracking) {
-      return 'Live tracking';
-    }
-
-    if (destinationLatLng != null && polylines.isNotEmpty) {
-      return 'Route ready';
-    }
-
+    if (isLoading) return 'Planning route';
+    if (isRerouting) return 'Recalculating route';
+    if (isOffRoute) return 'Off route';
+    if (isLiveTracking) return 'Live tracking';
+    if (destinationLatLng != null && polylines.isNotEmpty) return 'Route ready';
     return 'Waiting for route';
   }
 
   Color get liveStatusColor {
-    if (isLoading || isRerouting || isOffRoute) {
-      return Colors.orange;
-    }
-
-    if (isLiveTracking) {
-      return Colors.green;
-    }
-
+    if (isLoading || isRerouting || isOffRoute) return Colors.orange;
+    if (isLiveTracking) return Colors.green;
     if (destinationLatLng != null && polylines.isNotEmpty) {
       return CustomColors.primaryColor;
     }
-
     return Colors.grey;
   }
 
@@ -179,82 +144,41 @@ class RouteFinderProvider extends ChangeNotifier {
   }
 
   String get gpsConfidenceLabel {
-    if (currentGpsAccuracyMeters == null) {
-      return 'GPS syncing';
-    }
-
-    if (isLowGpsConfidence) {
-      return 'Low GPS confidence';
-    }
-
-    if (currentGpsAccuracyMeters! <= 10) {
-      return 'High confidence';
-    }
-
+    if (currentGpsAccuracyMeters == null) return 'GPS syncing';
+    if (isLowGpsConfidence) return 'Low GPS confidence';
+    if (currentGpsAccuracyMeters! <= 10) return 'High confidence';
     return 'Good confidence';
   }
 
   Color get gpsConfidenceColor {
-    if (isLowGpsConfidence) {
-      return Colors.orange;
-    }
-
-    if (currentGpsAccuracyMeters == null) {
-      return Colors.grey;
-    }
-
+    if (isLowGpsConfidence) return Colors.orange;
+    if (currentGpsAccuracyMeters == null) return Colors.grey;
     return Colors.green;
   }
 
   double get liveFollowZoom {
-    if (_smoothedSpeedMps >= 8) {
-      return 15.2;
-    }
-
-    if (_smoothedSpeedMps >= 3) {
-      return 15.8;
-    }
-
+    if (_smoothedSpeedMps >= 8) return 15.2;
+    if (_smoothedSpeedMps >= 3) return 15.8;
     return 16.4;
   }
 
   String get etaConfidenceLabel {
-    if (!isLiveTracking) {
-      return 'Route ETA';
-    }
-
-    if (currentGpsAccuracyMeters == null) {
-      return 'Syncing ETA';
-    }
-
-    if (currentGpsAccuracyMeters! > 30) {
-      return 'Approx ETA';
-    }
-
-    if (_smoothedSpeedMps >= 2) {
-      return 'Live ETA';
-    }
-
+    if (!isLiveTracking) return 'Route ETA';
+    if (currentGpsAccuracyMeters == null) return 'Syncing ETA';
+    if (currentGpsAccuracyMeters! > 30) return 'Approx ETA';
+    if (_smoothedSpeedMps >= 2) return 'Live ETA';
     return 'Balanced ETA';
   }
 
   Color get etaConfidenceColor {
-    if (!isLiveTracking) {
-      return Colors.white;
-    }
-
-    if (currentGpsAccuracyMeters == null) {
-      return Colors.grey;
-    }
-
+    if (!isLiveTracking) return Colors.white;
+    if (currentGpsAccuracyMeters == null) return Colors.grey;
     if (currentGpsAccuracyMeters! > 30 || _smoothedSpeedMps < 2) {
       return Colors.orange.shade200;
     }
-
     return Colors.green.shade200;
   }
 
-  /// ON MAP CREATED
   void onMapCreated(GoogleMapController controller) {
     mapController = controller;
   }
@@ -282,9 +206,7 @@ class RouteFinderProvider extends ChangeNotifier {
   }
 
   double? _projectedDistanceAlongRoute(LatLng currentLocation) {
-    if (polylineCoordinates.length < 2) {
-      return null;
-    }
+    if (polylineCoordinates.length < 2) return null;
 
     double cumulativeDistance = 0;
     double bestProjectedDistance = 0;
@@ -303,7 +225,8 @@ class RouteFinderProvider extends ChangeNotifier {
       final segmentProjection = _segmentProjection(currentLocation, start, end);
       if (segmentProjection.distance < bestDistance) {
         bestDistance = segmentProjection.distance;
-        bestProjectedDistance = cumulativeDistance + segmentProjection.progress * segmentLength;
+        bestProjectedDistance =
+            cumulativeDistance + segmentProjection.progress * segmentLength;
       }
 
       cumulativeDistance += segmentLength;
@@ -313,14 +236,13 @@ class RouteFinderProvider extends ChangeNotifier {
   }
 
   ({double distance, double progress}) _segmentProjection(
-    LatLng point,
-    LatLng start,
-    LatLng end,
-  ) {
+      LatLng point,
+      LatLng start,
+      LatLng end,
+      ) {
     final latScale = 111320.0;
-    final lngScale = 111320.0 * math.cos(
-      ((start.latitude + end.latitude) * math.pi) / 360,
-    );
+    final lngScale = 111320.0 *
+        math.cos(((start.latitude + end.latitude) * math.pi) / 360);
 
     final dx = (end.longitude - start.longitude) * lngScale;
     final dy = (end.latitude - start.latitude) * latScale;
@@ -345,14 +267,12 @@ class RouteFinderProvider extends ChangeNotifier {
   }
 
   int _estimateRemainingDurationSeconds() {
-    if (remainingDistanceMeters == null || totalDistanceMeters == null || totalDurationSeconds == null) {
+    if (remainingDistanceMeters == null ||
+        totalDistanceMeters == null ||
+        totalDurationSeconds == null) {
       return 0;
     }
-
-    if (totalDistanceMeters == 0) {
-      return 0;
-    }
-
+    if (totalDistanceMeters == 0) return 0;
     final ratio = remainingDistanceMeters! / totalDistanceMeters!;
     return (totalDurationSeconds! * ratio).round();
   }
@@ -361,36 +281,23 @@ class RouteFinderProvider extends ChangeNotifier {
     if (remainingDistanceMeters == null || remainingDistanceMeters == 0) {
       return 0;
     }
-
     final fallbackEstimate = _estimateRemainingDurationSeconds();
-
-    if (!isLiveTracking || _smoothedSpeedMps <= 0.5) {
-      return fallbackEstimate;
-    }
-
+    if (!isLiveTracking || _smoothedSpeedMps <= 0.5) return fallbackEstimate;
     final liveEstimate = (remainingDistanceMeters! / _smoothedSpeedMps).round();
-
-    if (fallbackEstimate == 0) {
-      return liveEstimate;
-    }
-
+    if (fallbackEstimate == 0) return liveEstimate;
     return ((liveEstimate * 0.7) + (fallbackEstimate * 0.3)).round();
   }
 
   double _currentRouteDeviationMeters(LatLng currentLocation) {
-    if (polylineCoordinates.length < 2) {
-      return double.infinity;
-    }
+    if (polylineCoordinates.length < 2) return double.infinity;
 
     double bestDistance = double.infinity;
-
     for (var index = 0; index < polylineCoordinates.length - 1; index++) {
       final start = polylineCoordinates[index];
       final end = polylineCoordinates[index + 1];
       final projection = _segmentProjection(currentLocation, start, end);
       bestDistance = math.min(bestDistance, projection.distance);
     }
-
     return bestDistance;
   }
 
@@ -409,7 +316,6 @@ class RouteFinderProvider extends ChangeNotifier {
     _livePulseVisible = true;
   }
 
-  /// RESET ROUTE
   void clearRoute() {
     markers.clear();
     polylines.clear();
@@ -439,10 +345,7 @@ class RouteFinderProvider extends ChangeNotifier {
 
   void _syncVisiblePolylines() {
     polylines.clear();
-
-    if (polylineCoordinates.length < 2 || sourceLatLng == null) {
-      return;
-    }
+    if (polylineCoordinates.length < 2 || sourceLatLng == null) return;
 
     final split = splitRoutePolyline(
       routeCoordinates: polylineCoordinates,
@@ -475,39 +378,24 @@ class RouteFinderProvider extends ChangeNotifier {
   }
 
   double _cameraThresholdMeters() {
-    if (_smoothedSpeedMps >= 8) {
-      return 12;
-    }
-
-    if (_smoothedSpeedMps >= 3) {
-      return 15;
-    }
-
+    if (_smoothedSpeedMps >= 8) return 12;
+    if (_smoothedSpeedMps >= 3) return 15;
     return 10;
   }
 
   bool _shouldAnimateCamera(LatLng updatedLatLng) {
-    if (_lastCameraTarget == null) {
-      return true;
-    }
-
+    if (_lastCameraTarget == null) return true;
     final distance = Geolocator.distanceBetween(
       _lastCameraTarget!.latitude,
       _lastCameraTarget!.longitude,
       updatedLatLng.latitude,
       updatedLatLng.longitude,
     );
-
-    if (distance >= _cameraThresholdMeters()) {
-      return true;
-    }
-
+    if (distance >= _cameraThresholdMeters()) return true;
     final lastUpdatedAt = _lastCameraUpdatedAt;
-    if (lastUpdatedAt == null) {
-      return true;
-    }
-
-    return DateTime.now().difference(lastUpdatedAt) >= const Duration(seconds: 3);
+    if (lastUpdatedAt == null) return true;
+    return DateTime.now().difference(lastUpdatedAt) >=
+        const Duration(seconds: 3);
   }
 
   void _updateRouteDeviation(LatLng updatedLatLng) {
@@ -516,13 +404,26 @@ class RouteFinderProvider extends ChangeNotifier {
         currentRouteDeviationMeters! > 30;
   }
 
+  /// Starts live tracking only if permission is granted.
+  /// Never throws — if permission is denied, the provider simply stays
+  /// in "route ready" mode without live tracking.
   Future<void> startLiveTracking() async {
     if (isLiveTracking) return;
 
     try {
-      final currentPosition = sourceLatLng == null
+      final currentPosition =
+      sourceLatLng == null
           ? await CustomLocationPermissionHandler.determinePosition()
           : null;
+
+      if (currentPosition == null && sourceLatLng == null) {
+        // Permission denied and no source set. Stay functional.
+        hasLocationPermission = false;
+        notifyListeners();
+        return;
+      }
+
+      hasLocationPermission = true;
 
       if (currentPosition != null) {
         sourceLatLng = LatLng(
@@ -533,9 +434,7 @@ class RouteFinderProvider extends ChangeNotifier {
         currentSpeedMetersPerSecond = currentPosition.speed;
       }
 
-      if (sourceLatLng == null) {
-        return;
-      }
+      if (sourceLatLng == null) return;
 
       isLiveTracking = true;
       _startLivePulse();
@@ -545,16 +444,23 @@ class RouteFinderProvider extends ChangeNotifier {
 
       _livePositionSubscription = geolocatorPlatform
           .getPositionStream(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.bestForNavigation,
-              distanceFilter: 5,
-            ),
-          )
-          .listen(_handleLivePositionUpdate);
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: 5,
+        ),
+      )
+          .listen(
+        _handleLivePositionUpdate,
+        onError: (e) {
+          debugPrint('Live tracking stream error: $e');
+        },
+      );
 
       notifyListeners();
     } catch (e) {
       debugPrint('Failed to start live tracking: $e');
+      hasLocationPermission = false;
+      notifyListeners();
     }
   }
 
@@ -567,17 +473,12 @@ class RouteFinderProvider extends ChangeNotifier {
   }
 
   void _updateHeadingFromPosition(Position position) {
-    if (!position.heading.isFinite || position.heading < 0) {
-      return;
-    }
-
+    if (!position.heading.isFinite || position.heading < 0) return;
     currentHeading = position.heading;
   }
 
   Future<void> _refreshRouteIfNeeded(LatLng updatedLatLng) async {
-    if (destinationLatLng == null || _isRefreshingRoute) {
-      return;
-    }
+    if (destinationLatLng == null || _isRefreshingRoute) return;
 
     final now = DateTime.now();
     final lastRefreshAt = _lastRouteRefreshAt;
@@ -595,25 +496,21 @@ class RouteFinderProvider extends ChangeNotifier {
     final distanceSinceRefresh = lastRefreshPoint == null
         ? double.infinity
         : Geolocator.distanceBetween(
-            lastRefreshPoint.latitude,
-            lastRefreshPoint.longitude,
-            updatedLatLng.latitude,
-            updatedLatLng.longitude,
-          );
+      lastRefreshPoint.latitude,
+      lastRefreshPoint.longitude,
+      updatedLatLng.latitude,
+      updatedLatLng.longitude,
+    );
 
-    final sustainedDeviation =
-        _lastDeviationDetectedAt != null &&
+    final sustainedDeviation = _lastDeviationDetectedAt != null &&
         now.difference(_lastDeviationDetectedAt!) >= const Duration(seconds: 8);
 
-    final shouldRefresh =
-        lastRefreshAt == null ||
+    final shouldRefresh = lastRefreshAt == null ||
         sustainedDeviation ||
         distanceSinceRefresh >= 60 ||
         now.difference(lastRefreshAt) >= const Duration(seconds: 35);
 
-    if (!shouldRefresh) {
-      return;
-    }
+    if (!shouldRefresh) return;
 
     _isRefreshingRoute = true;
     isRerouting = true;
@@ -649,7 +546,6 @@ class RouteFinderProvider extends ChangeNotifier {
         updatedLatLng.latitude,
         updatedLatLng.longitude,
       );
-
       if (distance < 2) {
         sourceLatLng = updatedLatLng;
         _syncSourceMarker();
@@ -685,7 +581,7 @@ class RouteFinderProvider extends ChangeNotifier {
     if (sourceLatLng == null) return;
 
     markers.removeWhere(
-      (marker) => marker.markerId == const MarkerId('source'),
+          (marker) => marker.markerId == const MarkerId('source'),
     );
     markers.add(
       Marker(
@@ -703,8 +599,11 @@ class RouteFinderProvider extends ChangeNotifier {
     );
   }
 
-  /// GENERATE ROUTE
-  Future<void> generateRoute({BitmapDescriptor? sourceMarker, destinationMarker, liveMarker}) async {
+  Future<void> generateRoute({
+    BitmapDescriptor? sourceMarker,
+    destinationMarker,
+    liveMarker,
+  }) async {
     try {
       isLoading = true;
       notifyListeners();
@@ -719,9 +618,7 @@ class RouteFinderProvider extends ChangeNotifier {
         destination: destinationText,
       );
 
-      if (validationError != null) {
-        throw Exception(validationError);
-      }
+      if (validationError != null) throw Exception(validationError);
 
       debugPrint("Source LatLng: $sourceLatLng");
       debugPrint("Destination LatLng: $destinationLatLng");
@@ -734,7 +631,8 @@ class RouteFinderProvider extends ChangeNotifier {
         Marker(
           markerId: const MarkerId('destination'),
           position: destinationLatLng!,
-          icon: destinationMarker ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          icon: destinationMarker ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           infoWindow: const InfoWindow(title: 'Destination'),
         ),
       );
@@ -751,13 +649,8 @@ class RouteFinderProvider extends ChangeNotifier {
     required String source,
     required String destination,
   }) async {
-    if (source.isEmpty) {
-      return 'Please enter a source address.';
-    }
-
-    if (destination.isEmpty) {
-      return 'Please enter a destination address.';
-    }
+    if (source.isEmpty) return 'Please enter a source address.';
+    if (destination.isEmpty) return 'Please enter a destination address.';
 
     sourceLatLng = await _resolveLatLngFromInput(
       source,
@@ -765,9 +658,7 @@ class RouteFinderProvider extends ChangeNotifier {
       useAutoLocationFallback: sourceWasAutoLocation,
     );
 
-    if (sourceLatLng == null) {
-      return 'Please enter a correct source location.';
-    }
+    if (sourceLatLng == null) return 'Please enter a correct source location.';
 
     destinationLatLng = await _resolveLatLngFromInput(
       destination,
@@ -783,10 +674,10 @@ class RouteFinderProvider extends ChangeNotifier {
   }
 
   Future<LatLng?> _resolveLatLngFromInput(
-    String input,
-    LatLng? currentLatLng, {
-    required bool useAutoLocationFallback,
-  }) async {
+      String input,
+      LatLng? currentLatLng, {
+        required bool useAutoLocationFallback,
+      }) async {
     if (useAutoLocationFallback && currentLatLng != null) {
       debugPrint("Using auto current location directly");
       return currentLatLng;
@@ -795,13 +686,10 @@ class RouteFinderProvider extends ChangeNotifier {
     if (input.isEmpty) return null;
 
     final parsedLatLng = _parseCoordinateString(input);
-    if (parsedLatLng != null) {
-      return parsedLatLng;
-    }
+    if (parsedLatLng != null) return parsedLatLng;
 
     try {
       final locations = await locationFromAddress(input);
-
       if (locations.isNotEmpty) {
         return LatLng(locations.first.latitude, locations.first.longitude);
       }
@@ -822,19 +710,16 @@ class RouteFinderProvider extends ChangeNotifier {
     final lat = double.tryParse(match.group(1)!);
     final lng = double.tryParse(match.group(2)!);
     if (lat == null || lng == null) return null;
-
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
     return LatLng(lat, lng);
   }
 
-  /// GET POLYLINE
   Future<void> getPolyline() async {
     if (sourceLatLng == null || destinationLatLng == null) return;
 
     try {
       final polylinePoints = PolylinePoints(apiKey: googleApiKey);
 
-      // ignore: deprecated_member_use
       final routeRequest = PolylineRequest(
         origin: PointLatLng(sourceLatLng!.latitude, sourceLatLng!.longitude),
         destination: PointLatLng(
@@ -871,7 +756,6 @@ class RouteFinderProvider extends ChangeNotifier {
     }
   }
 
-  /// SET CAMERA BOUNDS
   Future<void> setCameraBounds() async {
     if (sourceLatLng == null || destinationLatLng == null) return;
 

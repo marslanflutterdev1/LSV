@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
-import '../../../core/theme/custom_colors.dart';
 
 class StreetMapViewProvider extends ChangeNotifier {
   double? latitude;
@@ -14,9 +13,14 @@ class StreetMapViewProvider extends ChangeNotifier {
     try {
       isLoading = true;
       hasError = false;
+      errorMessage = "";
       notifyListeners();
 
-      List<Location> locations = await locationFromAddress(address);
+      if (address.trim().isEmpty) {
+        throw Exception("Empty address");
+      }
+
+      final List<Location> locations = await locationFromAddress(address);
 
       if (locations.isEmpty) {
         throw Exception("Location not found");
@@ -26,6 +30,7 @@ class StreetMapViewProvider extends ChangeNotifier {
       longitude = locations.first.longitude;
 
       isLoading = false;
+      hasError = false;
       notifyListeners();
     } catch (e) {
       isLoading = false;

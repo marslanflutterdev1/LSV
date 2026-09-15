@@ -21,16 +21,13 @@ class _LiveStreetViewScreenState extends State<LiveStreetViewScreen> {
   @override
   void initState() {
     Future.microtask(() {
+      if (!mounted) return;
       Provider.of<StreetMapViewProvider>(
         context,
         listen: false,
       ).initializeWebView(widget.address);
     });
     super.initState();
-  }
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   @override
@@ -52,9 +49,7 @@ class _LiveStreetViewScreenState extends State<LiveStreetViewScreen> {
                 ),
               ),
               leading: IconButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+                onPressed: () => Navigator.pop(context),
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
@@ -73,51 +68,85 @@ class _LiveStreetViewScreenState extends State<LiveStreetViewScreen> {
                 ? Center(
               child: CustomCircleProgressIndicator(
                 backgroundColor: CustomColors.grey,
-                valueColor: AlwaysStoppedAnimation<Color>(CustomColors.primaryColor),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                    CustomColors.primaryColor),
                 strokeWidth: 2,
               ),
             )
                 : provider.hasError
                 ? Center(
-                    child: Text(
-                      provider.errorMessage,
-                      style: const TextStyle(fontSize: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.location_off_outlined,
+                      size: 60,
+                      color: CustomColors.primaryColor,
                     ),
-                  )
+                    const SizedBox(height: 16),
+                    Text(
+                      'Street View unavailable',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'This address could not be loaded. '
+                          'Please go back and try another place.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
                 : SafeArea(
-                    child: FlutterStreetView(
-                      apiKey: Constants.mapKey,
-                      latitude: provider.latitude!,
-                      longitude: provider.longitude!,
-                      onMessageReceived: (message){},
-                      streetViewOptions: const StreetViewOptions(
-                        panControl: true,
-                        zoomControl: true,
-                        linksControl: true,
-                        fullscreenControl: true,
-                        motionTrackingControl: true,
-                        addressControl: true,
-                        showRoadLabels: true,
-                        clickToGo: true,
-                        scrollwheel: true,
-                        disableDefaultUI: true,
-                        povHeading: 0,
-                        povPitch: 0,
-                        povZoom: 1,
-                      ),
-                      loadingBuilder: (context) =>  Center(
-                        child: CustomCircleProgressIndicator(
-                          backgroundColor: CustomColors.grey,
-                          valueColor: AlwaysStoppedAnimation<Color>(CustomColors.primaryColor),
-                          strokeWidth: 2,
-                        ),
-                      ),
-
-                      errorBuilder: (context, errorMessage) =>
-                          Center(child: Text(errorMessage)),
+              child: FlutterStreetView(
+                apiKey: Constants.mapKey,
+                latitude: provider.latitude!,
+                longitude: provider.longitude!,
+                onMessageReceived: (message) {},
+                streetViewOptions: const StreetViewOptions(
+                  panControl: true,
+                  zoomControl: true,
+                  linksControl: true,
+                  fullscreenControl: true,
+                  motionTrackingControl: true,
+                  addressControl: true,
+                  showRoadLabels: true,
+                  clickToGo: true,
+                  scrollwheel: true,
+                  disableDefaultUI: true,
+                  povHeading: 0,
+                  povPitch: 0,
+                  povZoom: 1,
+                ),
+                loadingBuilder: (context) => Center(
+                  child: CustomCircleProgressIndicator(
+                    backgroundColor: CustomColors.grey,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        CustomColors.primaryColor),
+                    strokeWidth: 2,
+                  ),
+                ),
+                errorBuilder: (context, errorMessage) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'Unable to load Street View for this location.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
-            bottomNavigationBar: BannerAdmob()
+                ),
+              ),
+            ),
+            bottomNavigationBar: BannerAdmob(),
           ),
         );
       },

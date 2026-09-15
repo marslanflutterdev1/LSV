@@ -42,11 +42,12 @@ class _TrafficScreenState extends State<TrafficScreen> {
 
   Future<void> _init() async {
     await _setUpCustomMarker();
-    if (mounted) {
-      await context.read<TrafficProvider>().getCurrentLocation(
-        customMarker: customMarker,
-      );
-    }
+    if (!mounted) return;
+    // Attempt to get location. If permission is denied,
+    // the provider handles it gracefully and the app still works.
+    await context.read<TrafficProvider>().getCurrentLocation(
+      customMarker: customMarker,
+    );
   }
 
   Future<void> _setUpCustomMarker() async {
@@ -55,7 +56,7 @@ class _TrafficScreenState extends State<TrafficScreen> {
       targetWidth: 40,
       targetHeight: 40,
     );
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   @override
@@ -73,7 +74,8 @@ class _TrafficScreenState extends State<TrafficScreen> {
                 onTap: () {
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(builder: (_) => BottomNavBarScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => BottomNavBarScreen()),
                         (r) => false,
                   );
                 },
@@ -126,7 +128,6 @@ class _TrafficScreenState extends State<TrafficScreen> {
                   suffixIcon: provider.searchController.text.isNotEmpty
                       ? IconButton(
                     onPressed: () async {
-                      // ✅ Pass customMarker to searchLocation
                       await provider.searchLocation(
                         customMarker: customMarker,
                       );
@@ -135,7 +136,9 @@ class _TrafficScreenState extends State<TrafficScreen> {
                     },
                     icon: provider.isLoading
                         ? const CustomCircleProgressIndicator(
-                        width: 18, height: 18, strokeWidth: 1)
+                        width: 18,
+                        height: 18,
+                        strokeWidth: 1)
                         : const Icon(Icons.send),
                   )
                       : null,
@@ -173,7 +176,8 @@ class _TrafficScreenState extends State<TrafficScreen> {
               actions: [
                 IconButton(
                   onPressed: () => setState(() => isSearch = !isSearch),
-                  icon: Icon(Icons.search_rounded, color: CustomColors.white),
+                  icon: Icon(Icons.search_rounded,
+                      color: CustomColors.white),
                 ),
               ],
               leading: GestureDetector(
@@ -181,7 +185,8 @@ class _TrafficScreenState extends State<TrafficScreen> {
                 onTap: () {
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(builder: (_) => BottomNavBarScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => BottomNavBarScreen()),
                         (r) => false,
                   );
                 },
@@ -215,7 +220,8 @@ class _TrafficScreenState extends State<TrafficScreen> {
                     mapType: provider.satelliteMode
                         ? MapType.satellite
                         : MapType.normal,
-                    myLocationEnabled: true,
+                    // ✅ CRITICAL: only enable when permission granted.
+                    myLocationEnabled: provider.hasLocationPermission,
                     myLocationButtonEnabled: false,
                     compassEnabled: true,
                     buildingsEnabled: true,
@@ -224,7 +230,7 @@ class _TrafficScreenState extends State<TrafficScreen> {
                     onMapCreated: provider.setMapController,
                   ),
 
-                  /// RIGHT BUTTONS
+                  /// Right-side buttons
                   Positioned(
                     right: 15,
                     bottom: 10,
@@ -254,16 +260,21 @@ class _TrafficScreenState extends State<TrafficScreen> {
                                   : Colors.black),
                         ),
                         const SizedBox(height: 10),
-                        FloatingActionButton.small(
-                          heroTag: 'location',
-                          backgroundColor: Colors.white,
-                          // ✅ Pass customMarker to getCurrentLocation
-                          onPressed: () => provider.getCurrentLocation(
-                            customMarker: customMarker,
+                        // ✅ Only show "My Location" button when permission granted.
+                        // Otherwise tapping it does nothing, which Apple may flag.
+                        if (provider.hasLocationPermission)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: FloatingActionButton.small(
+                              heroTag: 'location',
+                              backgroundColor: Colors.white,
+                              onPressed: () => provider.getCurrentLocation(
+                                customMarker: customMarker,
+                              ),
+                              child: const Icon(Icons.my_location,
+                                  color: Colors.black),
+                            ),
                           ),
-                          child: const Icon(Icons.my_location, color: Colors.black),
-                        ),
-                        const SizedBox(height: 10),
                         FloatingActionButton.small(
                           heroTag: 'zoomIn',
                           backgroundColor: Colors.white,
@@ -280,11 +291,47 @@ class _TrafficScreenState extends State<TrafficScreen> {
                       ],
                     ),
                   ),
+
+                  // ✅ Optional: small hint when permission denied.
+                  // It does not block the map and does not push Settings.
+                  if (!provider.hasLocationPermission)
+                    Positioned(
+                      left: 12,
+                      right: 12,
+                      top: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: 5,
+                          children: [
+                            const Text(
+                              'Location permission not granted.',
+                              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.start,
+                            ),
+                            const Text(
+                              'Showing default location. Enable location in Settings to see your position.',
+                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.start,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
             bottomNavigationBar: BannerAdmob(),
-
           ),
         );
       },

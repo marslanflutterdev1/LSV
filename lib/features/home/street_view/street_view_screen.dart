@@ -24,11 +24,6 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
   final FocusNode searchFocusNode = FocusNode();
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void dispose() {
     searchController.dispose();
     searchFocusNode.dispose();
@@ -45,7 +40,8 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
               body: Center(
                 child: CustomCircleProgressIndicator(
                   backgroundColor: CustomColors.grey,
-                  valueColor: AlwaysStoppedAnimation<Color>(CustomColors.primaryColor),
+                  valueColor:
+                  AlwaysStoppedAnimation<Color>(CustomColors.primaryColor),
                   strokeWidth: 2,
                 ),
               ),
@@ -54,8 +50,31 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
         }
 
         if (provider.hasError) {
-          return const Scaffold(
-            body: Center(child: Text('Unable to load countries data.')),
+          return Scaffold(
+            appBar: AppBar(
+              elevation: 0,
+              backgroundColor: CustomColors.primaryColor,
+              leading: IconButton(
+                onPressed: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const BottomNavBarScreen()),
+                        (route) => false,
+                  );
+                },
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+              ),
+            ),
+            body: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Unable to load data. Please check your connection and try again.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
           );
         }
 
@@ -133,7 +152,8 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
                 onTap: () {
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(builder: (_) => const BottomNavBarScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => const BottomNavBarScreen()),
                         (route) => false,
                   );
                 },
@@ -156,12 +176,10 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
             ),
             body: Builder(
               builder: (context) {
-                // Initial empty state
                 if (!provider.shouldShowSuggestions) {
                   return _buildEmptyState(context);
                 }
 
-                // No search results
                 if (!provider.hasResults) {
                   return Center(
                     child: Column(
@@ -176,14 +194,16 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
                         const SizedBox(height: 10),
                         Text(
                           'No matching country found',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          style:
+                          Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Start searching to view your history country',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style:
+                          Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -198,7 +218,8 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
                   child: GridView.builder(
                     physics: const BouncingScrollPhysics(),
                     itemCount: provider.searchResults.length,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
@@ -218,7 +239,8 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => FavouritePlacesStreetViewScreen(country: country),
+                              builder: (_) => FavouritePlacesStreetViewScreen(
+                                  country: country),
                             ),
                                 (r) => false,
                           );
@@ -240,9 +262,7 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(0),
-                                child: buildContainer(
-                                  url: country.flagImage,
-                                ),
+                                child: buildContainer(url: country.flagImage),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -250,7 +270,10 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
                                   country.countryName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(
                                     color: CustomColors.white,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -267,7 +290,6 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
               },
             ),
             bottomNavigationBar: BannerAdmob(),
-
           ),
         );
       },
@@ -299,7 +321,8 @@ class _StreetViewScreenState extends State<StreetViewScreen> {
           child: Center(
             child: CustomCircleProgressIndicator(
               backgroundColor: CustomColors.grey,
-              valueColor: AlwaysStoppedAnimation<Color>(CustomColors.primaryColor),
+              valueColor:
+              AlwaysStoppedAnimation<Color>(CustomColors.primaryColor),
               strokeWidth: 2,
             ),
           ),

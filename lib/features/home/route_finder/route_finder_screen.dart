@@ -61,7 +61,9 @@ class _RouteFinderScreenState extends State<RouteFinderScreen> {
     });
   }
 
-  /// Initialize current location on screen load
+  /// Initialize current location on screen load.
+  /// If permission is denied, the app remains functional and simply
+  /// leaves the source field empty for the user to fill in.
   Future<void> _initializeCurrentLocation() async {
     _isInitializingLocation = true;
 
@@ -73,9 +75,17 @@ class _RouteFinderScreenState extends State<RouteFinderScreen> {
       provider.clearRoute();
 
       final position =
-          await CustomLocationPermissionHandler.determinePosition();
+      await CustomLocationPermissionHandler.determinePosition();
 
-      List<Placemark> placemarks = await placemarkFromCoordinates(
+      // ✅ If permission is denied, position is null — do not crash.
+      if (position == null) {
+        provider.hasLocationPermission = false;
+        return;
+      }
+
+      provider.hasLocationPermission = true;
+
+      final placemarks = await placemarkFromCoordinates(
         position.latitude,
         position.longitude,
       );
@@ -84,8 +94,7 @@ class _RouteFinderScreenState extends State<RouteFinderScreen> {
 
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;
-
-        List<String> parts = [];
+        final parts = <String>[];
 
         if (place.street != null && place.street!.isNotEmpty) {
           parts.add(place.street!);
@@ -101,9 +110,7 @@ class _RouteFinderScreenState extends State<RouteFinderScreen> {
       }
 
       provider.sourceController.text = address;
-
       provider.sourceLatLng = LatLng(position.latitude, position.longitude);
-
       provider.sourceWasAutoLocation = true;
     } catch (e) {
       log("Location Error: $e");

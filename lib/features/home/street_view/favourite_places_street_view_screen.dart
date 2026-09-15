@@ -18,11 +18,12 @@ class FavouritePlacesStreetViewScreen extends StatefulWidget {
   });
 
   @override
-  State<FavouritePlacesStreetViewScreen> createState() => _FavouritePlacesStreetViewScreenState();
+  State<FavouritePlacesStreetViewScreen> createState() =>
+      _FavouritePlacesStreetViewScreenState();
 }
 
-class _FavouritePlacesStreetViewScreenState extends State<FavouritePlacesStreetViewScreen> {
-
+class _FavouritePlacesStreetViewScreenState
+    extends State<FavouritePlacesStreetViewScreen> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -41,9 +42,7 @@ class _FavouritePlacesStreetViewScreenState extends State<FavouritePlacesStreetV
           ),
           leading: IconButton(
             onPressed: () {
-              // Clear search state before going back
               context.read<StreetViewProvider>().clearSearch();
-
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (_) => const StreetViewScreen()),
@@ -75,10 +74,19 @@ class _FavouritePlacesStreetViewScreenState extends State<FavouritePlacesStreetV
                 place: place,
                 flagUrl: widget.country.flagImage,
                 onTap: () {
+                  if (place.address == null || place.address!.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('No address available for this place'),
+                      ),
+                    );
+                    return;
+                  }
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => LiveStreetViewScreen(address: place.address!),
+                      builder: (_) =>
+                          LiveStreetViewScreen(address: place.address!),
                     ),
                   );
                 },
@@ -91,6 +99,7 @@ class _FavouritePlacesStreetViewScreenState extends State<FavouritePlacesStreetV
     );
   }
 }
+
 class _PlaceCard extends StatelessWidget {
   final Place place;
   final String? flagUrl;
@@ -138,7 +147,8 @@ class _PlaceCard extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.only(left: 10, right: 10, top: 10, bottom: 6),
+              padding:
+              const EdgeInsets.only(left: 10, right: 10, top: 10, bottom: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -164,7 +174,8 @@ class _PlaceCard extends StatelessWidget {
                           place.address ?? "No address available",
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style:
+                          Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
                           ),
@@ -244,7 +255,8 @@ Widget buildFlagImage({String? url}) {
         child: Center(
           child: CustomCircleProgressIndicator(
             backgroundColor: CustomColors.grey,
-            valueColor: AlwaysStoppedAnimation<Color>(CustomColors.primaryColor),
+            valueColor:
+            AlwaysStoppedAnimation<Color>(CustomColors.primaryColor),
             strokeWidth: 2,
           ),
         ),

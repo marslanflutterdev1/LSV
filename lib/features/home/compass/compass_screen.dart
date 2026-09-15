@@ -2,9 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:provider/provider.dart';
 import 'package:satellite_view/mob_ads/banner_ads/banner_ad_mob.dart';
 
 import '../../../core/theme/custom_colors.dart';
@@ -43,36 +40,16 @@ class CompassScreen extends StatefulWidget {
 }
 
 class _CompassScreenState extends State<CompassScreen> {
-  late Future<PermissionStatus> _permissionFuture;
-
   @override
   void initState() {
     super.initState();
-    _permissionFuture = _ensureLocationPermission();
   }
 
-
-  Future<PermissionStatus> _ensureLocationPermission() async {
-    final currentStatus = await Permission.locationWhenInUse.status;
-
-    if (currentStatus.isGranted) {
-      return currentStatus;
-    }
-
-    return Permission.locationWhenInUse.request();
-  }
-
-  Future<void> _retryPermission() async {
-    setState(() {
-      _permissionFuture = _ensureLocationPermission();
-    });
-  }
-
-   @override
+  @override
   void dispose() {
-
-     super.dispose();
+    super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -117,173 +94,104 @@ class _CompassScreenState extends State<CompassScreen> {
           ),
         ),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: FutureBuilder<PermissionStatus>(
-          future: _permissionFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        body: SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Center(
+                child: StreamBuilder<CompassEvent>(
+                  stream: FlutterCompass.events,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return _statusCard(
+                        context,
+                        'Could not read compass sensor.',
+                        subtitle: 'Please rotate your device and try again.',
+                        icon: Icons.error_outline_rounded,
+                      );
+                    }
 
-            final permissionStatus = snapshot.data;
-            final isGranted = permissionStatus?.isGranted ?? false;
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const CircularProgressIndicator();
+                    }
 
-            if (!isGranted) {
-              final isPermanentlyDenied =
-                  permissionStatus?.isPermanentlyDenied ?? false;
+                    final heading = snapshot.data?.heading;
+                    if (heading == null) {
+                      return _statusCard(
+                        context,
+                        'Device does not support compass sensor.',
+                        subtitle:
+                            'Move the phone and check if the sensor is available.',
+                        icon: Icons.sensors_off_rounded,
+                      );
+                    }
 
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isPermanentlyDenied
-                            ? Icons.location_disabled_rounded
-                            : Icons.my_location_rounded,
-                        size: 56,
-                        color: CustomColors.primaryColor,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        isPermanentlyDenied
-                            ? 'Location access is permanently disabled.'
-                            : 'Enable location access to make the compass update live.',
-                        textAlign: TextAlign.center,
-                        style: textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        isPermanentlyDenied
-                            ? 'Open app settings and allow location permission to continue.'
-                            : 'The compass uses your device heading to stay accurate.',
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 24),
-                      FilledButton.icon(
-                        onPressed: isPermanentlyDenied
-                            ? () => openAppSettings()
-                            : () => _retryPermission(),
-                        icon: Icon(
-                          isPermanentlyDenied
-                              ? Icons.settings_rounded
-                              : Icons.lock_open_rounded,
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        SizedBox(height: 20),
+                        Text(
+                          'Live compass heading',
+                          style: textTheme.headlineSmall?.copyWith(
+                            color: CustomColors.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        label: Text(
-                          isPermanentlyDenied
-                              ? 'Open settings'
-                              : 'Allow permission',
+                        const SizedBox(height: 6),
+                        Text(
+                          '${heading.toStringAsFixed(0)}° ${getCardinalDirection(heading)}',
+                          style: textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: CustomColors.primaryColor,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            return SafeArea(
-              child: Container(
-                decoration:  BoxDecoration(
-                  color: Theme.of(context).scaffoldBackgroundColor
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Center(
-                    child: StreamBuilder<CompassEvent>(
-                      stream: FlutterCompass.events,
-                      builder: (context, snapshot) {
-                        if (snapshot.hasError) {
-                          return _statusCard(
-                            context,
-                            'Could not read compass sensor.',
-                            subtitle: 'Please rotate your device and try again.',
-                            icon: Icons.error_outline_rounded,
-                          );
-                        }
-
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const CircularProgressIndicator();
-                        }
-
-                        final heading = snapshot.data?.heading;
-                        if (heading == null) {
-                          return _statusCard(
-                            context,
-                            'Device does not support compass sensor.',
-                            subtitle:
-                                'Move the phone and check if the sensor is available.',
-                            icon: Icons.sensors_off_rounded,
-                          );
-                        }
-
-                        return Column(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: [
-                            SizedBox(height: 20),
-                            Text(
-                              'Live compass heading',
-                              style: textTheme.headlineSmall?.copyWith(
-                                color: CustomColors.primaryColor,
-                                fontWeight: FontWeight.bold
-
+                        const SizedBox(height: 28),
+                        CustomPaint(
+                          size: const Size(310, 310),
+                          painter: _CompassDialPainter(heading: heading),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CustomPaint(
+                                size: const Size(310, 310),
+                                painter: _CompassNeedlePainter(),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${heading.toStringAsFixed(0)}° ${getCardinalDirection(heading)}',
-                              style: textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: CustomColors.primaryColor,
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-                            CustomPaint(
-                              size: const Size(310, 310),
-                              painter: _CompassDialPainter(heading: heading),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  CustomPaint(
-                                    size: const Size(310, 310),
-                                    painter: _CompassNeedlePainter(),
+                              Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.brown.shade800,
+                                    width: 2,
                                   ),
-                                  Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.brown.shade800,
-                                        width: 2,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                            Text(
-                              'Hold the phone level and rotate it slowly to watch the needle align with north.',
-                              textAlign: TextAlign.center,
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: CustomColors.primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Hold the phone level and rotate it slowly to watch the needle align with north.',
+                          textAlign: TextAlign.center,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: CustomColors.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
         bottomNavigationBar: BannerAdmob(),
-
       ),
     );
   }
@@ -340,7 +248,7 @@ class _CompassDialPainter extends CustomPainter {
     canvas.drawCircle(center, radius + 10, shadowPaint);
 
     final backgroundPaint = Paint()
-      ..shader =  RadialGradient(
+      ..shader = RadialGradient(
         colors: [Color(0xFFFDFBF6), Color(0xFFE7DEC8)],
         stops: [0.0, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: radius));
@@ -370,7 +278,7 @@ class _CompassDialPainter extends CustomPainter {
     }
 
     final bezelOuter = Paint()
-      ..shader =  LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         // colors: [Color(0xFFB6A08E), Color(0xFF3B2418)],

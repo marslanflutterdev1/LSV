@@ -1,4 +1,3 @@
-import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +11,7 @@ class VoiceService extends ChangeNotifier {
   String _recognizedText = '';
   String? _error;
   List<stt.LocaleName>? _localeNames;
-  String _currentLocale = 'en_US';
+  final String _currentLocale = 'en_US';
 
   bool get isListening => _isListening;
   String get recognizedText => _recognizedText;
@@ -27,8 +26,9 @@ class VoiceService extends ChangeNotifier {
     }
 
     try {
-      developer.log('VoiceService: Initializing speech to text on ${Platform.operatingSystem}...');
-      
+      developer.log(
+          'VoiceService: Initializing speech to text on ${Platform.operatingSystem}...');
+
       final available = await _speechToText.initialize(
         onError: (error) {
           developer.log('VoiceService Error: ${error.errorMsg}');
@@ -44,13 +44,14 @@ class VoiceService extends ChangeNotifier {
 
       if (available) {
         _isInitialized = true;
-        
-        // Get available locales
+
         try {
           _localeNames = await _speechToText.locales();
-          developer.log('VoiceService: Available locales: ${_localeNames?.length}');
+          developer.log(
+              'VoiceService: Available locales: ${_localeNames?.length}');
           if (_localeNames != null && _localeNames!.isNotEmpty) {
-            developer.log('VoiceService: First locale: ${_localeNames!.first.localeId}');
+            developer.log(
+                'VoiceService: First locale: ${_localeNames!.first.localeId}');
           }
         } catch (e) {
           developer.log('VoiceService: Error getting locales: $e');
@@ -58,7 +59,8 @@ class VoiceService extends ChangeNotifier {
 
         developer.log('VoiceService: Initialized successfully');
       } else {
-        _error = 'Speech recognition not available on this device.\nMake sure Google Play Services is installed.';
+        _error =
+        'Speech recognition permission not granted.\nMake sure Enable Microphone Permission from app info setting.';
         developer.log('VoiceService: Not available on device');
       }
 
@@ -70,23 +72,44 @@ class VoiceService extends ChangeNotifier {
     }
   }
 
-  /// Request microphone permission
+  /// ✅ NEW: Clears any stale error state before a new attempt.
+  /// Call this before starting a new listening session.
+  void resetErrorState() {
+    _error = null;
+    notifyListeners();
+  }
+
+  /// Request microphone permission.
+  /// Returns true only if granted. Never opens Settings.
+  /// ✅ Re-reads the CURRENT permission status every time, so if the user
+  /// enabled the mic in Settings while the app was running, we detect it.
   Future<bool> requestMicrophonePermission() async {
     try {
-      final status = await Permission.microphone.request();
-      developer.log('VoiceService: Microphone permission: ${status.name}');
+      // Always re-read the current status from the system.
+      PermissionStatus status = await Permission.microphone.status;
 
+      // Request only if not decided yet.
       if (status.isDenied) {
-        _error = 'Microphone permission denied';
+        status = await Permission.microphone.request();
+      }
+
+      // Handle denial gracefully — no Settings redirect.
+      if (status.isDenied) {
+        _error = 'Microphone access is off. Voice input is unavailable.';
         notifyListeners();
-        return false;
-      } else if (status.isPermanentlyDenied) {
-        _error = 'Microphone permission permanently denied.\nPlease enable it in app settings.';
-        notifyListeners();
-        openAppSettings();
         return false;
       }
 
+      if (status.isPermanentlyDenied || status.isRestricted) {
+        // Do NOT open Settings. Just inform via error string.
+        _error =
+        'Microphone access is unavailable. You can type your search instead.';
+        notifyListeners();
+        return false;
+      }
+
+      // ✅ Clear any old error when permission is granted.
+      _error = null;
       return status.isGranted;
     } catch (e) {
       _error = 'Error requesting permission: $e';
@@ -125,7 +148,8 @@ class VoiceService extends ChangeNotifier {
 
       // Check if speech recognition is available
       if (!_speechToText.isAvailable) {
-        _error = 'Speech recognition is not available at this moment.\nPlease try again.';
+        _error =
+        'Speech recognition is not available at this moment.\nPlease try again.';
         _isListening = false;
         notifyListeners();
         developer.log('VoiceService: Not available');
@@ -139,16 +163,15 @@ class VoiceService extends ChangeNotifier {
 
       developer.log('VoiceService: Starting to listen with locale $_currentLocale...');
 
-      // Build the listen call
+
       await _speechToText.listen(
         onResult: (result) {
           _recognizedText = result.recognizedWords;
-          developer.log('VoiceService: Recognized (isFinal: ${result.finalResult}): $_recognizedText');
+          developer.log(
+              'VoiceService: Recognized (isFinal: ${result.finalResult}): $_recognizedText');
           notifyListeners();
-          
-          // Auto-stop if final result
+
           if (result.finalResult) {
-            developer.log('VoiceService: Final result received, stopping');
             Future.delayed(const Duration(milliseconds: 500), () {
               if (_isListening) {
                 stopListening();
@@ -164,8 +187,8 @@ class VoiceService extends ChangeNotifier {
         },
         cancelOnError: false,
         localeId: _currentLocale,
+        onDevice: false,   // ✅ ADD THIS LINE
       );
-
       developer.log('VoiceService: Listening started successfully');
     } catch (e) {
       _error = 'Error during listening: $e';
@@ -189,7 +212,8 @@ class VoiceService extends ChangeNotifier {
       await _speechToText.stop();
 
       _isListening = false;
-      developer.log('VoiceService: Listener stopped. Recognized: $_recognizedText');
+      developer.log(
+          'VoiceService: Listener stopped. Recognized: $_recognizedText');
       notifyListeners();
     } catch (e) {
       _error = 'Error stopping listener: $e';

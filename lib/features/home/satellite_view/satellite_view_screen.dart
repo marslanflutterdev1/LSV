@@ -21,7 +21,7 @@ class SatelliteViewScreen extends StatefulWidget {
 
 class _SatelliteViewScreenState extends State<SatelliteViewScreen> {
   CustomInfoWindowController customInfoWindowController =
-      CustomInfoWindowController();
+  CustomInfoWindowController();
   GoogleMapController? mapController;
   BitmapDescriptor? customMarker;
   LatLng latLng = LatLng(0.0, 0.0);
@@ -49,7 +49,7 @@ class _SatelliteViewScreenState extends State<SatelliteViewScreen> {
       targetHeight: 40,
     );
 
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   Future<void> initializeMarker() async {
@@ -79,7 +79,7 @@ class _SatelliteViewScreenState extends State<SatelliteViewScreen> {
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(builder: (_) => BottomNavBarScreen()),
-                    (r) => false,
+                        (r) => false,
                   );
                 },
                 child: Container(
@@ -90,7 +90,6 @@ class _SatelliteViewScreenState extends State<SatelliteViewScreen> {
                   ),
                   child: Center(
                     child: Icon(
-                      // Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
                       Icons.arrow_back,
                       color: CustomColors.primaryColor,
                       fontWeight: FontWeight.bold,
@@ -102,118 +101,84 @@ class _SatelliteViewScreenState extends State<SatelliteViewScreen> {
             ),
             body: provider.isLocationLoaded
                 ? SafeArea(
-                    child: Column(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Stack(
                       children: [
-                        Expanded(
-                          child: Stack(
-                            children: [
-                              GoogleMap(
-                                initialCameraPosition: CameraPosition(
-                                  target: provider.currentLatLng,
-                                  zoom: 16,
-                                ),
-
-                                mapType: MapType.satellite,
-                                myLocationEnabled: true,
-                                myLocationButtonEnabled: true,
-                                zoomControlsEnabled: true,
-                                compassEnabled: true,
-                                mapToolbarEnabled: false,
-                                markers: {
-                                  Marker(
-                                    markerId: MarkerId("current_location"),
-                                    position: provider.currentLatLng,
-                                    icon:
-                                        customMarker ??
-                                        BitmapDescriptor.defaultMarkerWithHue(
-                                          BitmapDescriptor.hueViolet,
-                                        ),
-                                    // onTap: () {
-                                    //   customInfoWindowController.addInfoWindow?.call(
-                                    //     Container(
-                                    //       decoration: BoxDecoration(
-                                    //         color: CustomColors.primaryColor,
-                                    //         borderRadius: BorderRadius.circular(4),
-                                    //       ),
-                                    //       child: Padding(
-                                    //         padding: const EdgeInsets.all(8.0),
-                                    //         child: Row(
-                                    //           mainAxisAlignment:
-                                    //               MainAxisAlignment.start,
-                                    //           mainAxisSize: MainAxisSize.min,
-                                    //           children: [
-                                    //             Icon(
-                                    //               Icons.account_circle,
-                                    //               color: Colors.white,
-                                    //               size: 24,
-                                    //             ),
-                                    //             SizedBox(width: 6),
-                                    //             Text(
-                                    //               "I am here",
-                                    //               style: Theme.of(context)
-                                    //                   .textTheme
-                                    //                   .bodyMedium
-                                    //                   ?.copyWith(
-                                    //                     color: Colors.white,
-                                    //                     fontWeight: FontWeight.bold,
-                                    //                   ),
-                                    //             ),
-                                    //           ],
-                                    //         ),
-                                    //       ),
-                                    //     ),
-                                    //     provider.currentLatLng,
-                                    //   );
-                                    // },
-
-                                    // icon: customMarker ?? BitmapDescriptor.defaultMarker,
-                                    infoWindow: InfoWindow(
-                                      title: "📡 Live Satellite Position",
-                                      snippet:
-                                          "Lat: ${provider.currentLatLng.latitude.toStringAsFixed(5)}, "
-                                          "Lng: ${provider.currentLatLng.longitude.toStringAsFixed(5)}",
-                                    ),
-                                  ),
-                                },
-                                onMapCreated: (controller) {
-                                  mapController = controller;
-                                  customInfoWindowController
-                                          .googleMapController =
-                                      controller;
-                                },
-                                onCameraMove: (CameraPosition cameraPosition) {
-                                  log(
-                                    'Camera Position: ${cameraPosition.target.longitude}:${cameraPosition.target.latitude}',
-                                  );
-                                  latLng = LatLng(
-                                    cameraPosition.target.latitude,
-                                    cameraPosition.target.longitude,
-                                  );
-                                },
-                                onCameraIdle: () {
-                                  log('Stop Camera');
-                                },
-                              ),
-                              CustomInfoWindow(
-                                controller: customInfoWindowController,
-                                height: 75,
-                                width: 150,
-                                offset: 50,
-                              ),
-                            ],
+                        GoogleMap(
+                          initialCameraPosition: CameraPosition(
+                            // Uses default lat/lng when permission denied,
+                            // and the user's real location when granted.
+                            target: provider.currentLatLng,
+                            zoom: 16,
                           ),
+                          mapType: MapType.satellite,
+                          // ✅ Only enable user-location features if permission granted
+                          myLocationEnabled: provider.hasLocationPermission,
+                          myLocationButtonEnabled:
+                          provider.hasLocationPermission,
+                          zoomControlsEnabled: true,
+                          compassEnabled: true,
+                          mapToolbarEnabled: false,
+                          markers: {
+                            // ✅ Only add the user's marker if we actually have their location
+                            if (provider.hasLocationPermission)
+                              Marker(
+                                markerId:
+                                const MarkerId("current_location"),
+                                position: provider.currentLatLng,
+                                icon: customMarker ??
+                                    BitmapDescriptor
+                                        .defaultMarkerWithHue(
+                                      BitmapDescriptor.hueViolet,
+                                    ),
+                                infoWindow: InfoWindow(
+                                  title: "📡 Live Satellite Position",
+                                  snippet:
+                                  "Lat: ${provider.currentLatLng.latitude.toStringAsFixed(5)}, "
+                                      "Lng: ${provider.currentLatLng.longitude.toStringAsFixed(5)}",
+                                ),
+                              ),
+                          },
+                          onMapCreated: (controller) {
+                            mapController = controller;
+                            customInfoWindowController
+                                .googleMapController =
+                                controller;
+                          },
+                          onCameraMove: (CameraPosition cameraPosition) {
+                            log(
+                              'Camera Position: ${cameraPosition.target.longitude}:${cameraPosition.target.latitude}',
+                            );
+                            latLng = LatLng(
+                              cameraPosition.target.latitude,
+                              cameraPosition.target.longitude,
+                            );
+                          },
+                          onCameraIdle: () {
+                            log('Stop Camera');
+                          },
                         ),
-
-                        BannerAdmob(),
+                        CustomInfoWindow(
+                          controller: customInfoWindowController,
+                          height: 75,
+                          width: 150,
+                          offset: 50,
+                        ),
                       ],
                     ),
-                  )
-                : Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 4,
-                      color: CustomColors.primaryColor,
-                    ),
                   ),
+                  BannerAdmob(),
+                ],
+              ),
+            )
+                : Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 4,
+                color: CustomColors.primaryColor,
+              ),
+            ),
             bottomNavigationBar: SafeArea(
               child: Container(
                 width: double.infinity,
@@ -227,7 +192,6 @@ class _SatelliteViewScreenState extends State<SatelliteViewScreen> {
                     ),
                   ],
                 ),
-
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,

@@ -6,7 +6,6 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:provider/provider.dart';
 import 'package:satellite_view/mob_ads/banner_ads/banner_ad_mob.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 import 'package:satellite_view/local/local_sp.dart';
@@ -16,27 +15,28 @@ import '../../../core/theme/custom_colors.dart';
 import '../../bottom_nav_bar/bottom_nav_bar_screen.dart';
 import 'speedometer_utils.dart';
 
-class SpeedoMeterScreen extends StatefulWidget
-{
+class SpeedoMeterScreen extends StatefulWidget {
     const SpeedoMeterScreen({super.key});
 
     @override
     State<SpeedoMeterScreen> createState() => _SpeedoMeterScreenState();
 }
 
-class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
-{
+class _SpeedoMeterScreenState extends State<SpeedoMeterScreen> {
     static const String _topSpeedHistoryKey = 'speedometer_top_speed_history';
     static const String _routeHistoryKey = 'speedometer_route_history';
     static const double _speedAlertThreshold = 90.0;
 
     double currentSpeed = 0.0;
-    String? errorText;
     DateTime? lastUpdateTime;
     double? accuracyMeters;
     double? altitudeMeters;
     double? headingDegrees;
-    bool isPermissionBlocked = false;
+
+    /// Whether the user has granted location permission.
+    /// Drives all UI decisions instead of an error banner.
+    bool hasLocationPermission = false;
+
     bool _voiceAlertReady = false;
     bool _speedAlertActive = false;
     double _sessionTopSpeed = 0.0;
@@ -48,54 +48,76 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
     final FlutterTts _flutterTts = FlutterTts();
 
     @override
-    void initState()
-    {
+    void initState() {
         super.initState();
         _loadPersistedAnalytics();
         _initializeVoiceAlerts();
         _startLocationStream();
     }
 
-    Future<void> _startLocationStream() async
-    {
-        try
-        {
+    /// Requests permission once, then starts the stream only if granted.
+    /// Never throws — the app always remains functional.
+    Future<void> _startLocationStream() async {
+        try {
+            final Position? initialPosition =
             await CustomLocationPermissionHandler.determinePosition();
+
+            if (!mounted) return;
+
+            if (initialPosition == null) {
+                // Permission denied or services off.
+                // App stays functional with speed = 0 and no error banner.
+                setState(() {
+                    hasLocationPermission = false;
+                    currentSpeed = 0.0;
+                });
+                return;
+            }
+
+            // Permission granted — start live stream
+            setState(() {
+                hasLocationPermission = true;
+            });
+
             _listenToPositionUpdates();
-        }
-        catch (error)
-        {
-            _handleLocationError(error);
+        } catch (_) {
+            if (!mounted) return;
+            setState(() {
+                hasLocationPermission = false;
+            });
         }
     }
 
-    void _listenToPositionUpdates()
-    {
+    void _listenToPositionUpdates() {
         _positionSubscription?.cancel();
 
         _positionSubscription = Geolocator.getPositionStream(
             locationSettings: const LocationSettings(
                 accuracy: LocationAccuracy.high,
-                distanceFilter: 1
-            )
-        ).listen(_handlePositionUpdate, onError: _handleLocationError);
+                distanceFilter: 1,
+            ),
+        ).listen(
+            _handlePositionUpdate,
+            onError: (error) {
+                if (!mounted) return;
+                // Stream error — keep the screen functional, do not show error UI
+                setState(() {
+                    hasLocationPermission = false;
+                });
+            },
+        );
     }
 
-    void _handlePositionUpdate(Position position)
-    {
-        if (!mounted)
-        {
-            return;
-        }
+    void _handlePositionUpdate(Position position) {
+        if (!mounted) return;
 
         final safeSpeed = clampSpeedValue(
-            position.speed >= 0 ? position.speed * 3.6 : 0.0
+            position.speed >= 0 ? position.speed * 3.6 : 0.0,
         );
 
         _latestLivePosition = LatLng(position.latitude, position.longitude);
 
-        if (safeSpeed > _sessionTopSpeed)
-        {
+        if (safeSpeed > _sessionTopSpeed) {
             _sessionTopSpeed = safeSpeed;
         }
 
@@ -109,323 +131,249 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
             },
         ];
 
-        if (_routePoints.length > 500)
-        {
+        if (_routePoints.length > 500) {
             _routePoints = _routePoints.sublist(_routePoints.length - 500);
         }
 
-        if (safeSpeed >= _speedAlertThreshold && !_speedAlertActive)
-        {
+        if (safeSpeed >= _speedAlertThreshold && !_speedAlertActive) {
             _speedAlertActive = true;
             _announceSpeedAlert();
-        }
-        else if (safeSpeed < _speedAlertThreshold)
-        {
+        } else if (safeSpeed < _speedAlertThreshold) {
             _speedAlertActive = false;
         }
 
-        setState(()
-            {
-                currentSpeed = safeSpeed;
-                accuracyMeters = position.accuracy;
-                altitudeMeters = position.altitude;
-                headingDegrees = position.heading >= 0 ? position.heading : null;
-                lastUpdateTime = DateTime.now();
-                errorText = null;
-                isPermissionBlocked = false;
-            }
-        );
+        setState(() {
+            currentSpeed = safeSpeed;
+            accuracyMeters = position.accuracy;
+            altitudeMeters = position.altitude;
+            headingDegrees = position.heading >= 0 ? position.heading : null;
+            lastUpdateTime = DateTime.now();
+        });
 
         _updateMapCamera();
         _persistAnalytics();
     }
 
-    void _updateMapCamera()
-    {
-        if (_mapController == null || _latestLivePosition == null)
-        {
-            return;
-        }
-
+    void _updateMapCamera() {
+        if (_mapController == null || _latestLivePosition == null) return;
         _mapController!.animateCamera(
-            CameraUpdate.newLatLngZoom(_latestLivePosition!, 14)
+            CameraUpdate.newLatLngZoom(_latestLivePosition!, 14),
         );
     }
 
-    void _handleLocationError(Object error)
-    {
-        if (!mounted)
-        {
-            return;
-        }
-
-        setState(()
-            {
-                errorText = error.toString();
-                isPermissionBlocked = error.toString().toLowerCase().contains(
-                    'permanently'
-                );
-            }
-        );
-    }
-
-    Future<void> _openLocationSettings() async
-    {
-        await Geolocator.openAppSettings();
-    }
-
-    Future<void> _initializeVoiceAlerts() async
-    {
-        try
-        {
+    Future<void> _initializeVoiceAlerts() async {
+        try {
             await _flutterTts.setLanguage('en-US');
             await _flutterTts.setSpeechRate(0.42);
             await _flutterTts.setVolume(1.0);
             await _flutterTts.setPitch(1.0);
             _voiceAlertReady = true;
-        }
-        catch (_) {
+        } catch (_) {
             _voiceAlertReady = false;
         }
     }
 
-    Future<void> _loadPersistedAnalytics() async
-    {
+    Future<void> _loadPersistedAnalytics() async {
         final savedTopSpeedHistory = decodeTopSpeedHistory(
-            LocalSP.getStringData(_topSpeedHistoryKey) as String?
+            LocalSP.getStringData(_topSpeedHistoryKey) as String?,
         );
 
-        final savedRoutePoints = LocalSP.getStringData(_routeHistoryKey) as String?;
+        final savedRoutePoints =
+        LocalSP.getStringData(_routeHistoryKey) as String?;
 
-        if (savedTopSpeedHistory.isNotEmpty)
-        {
+        if (savedTopSpeedHistory.isNotEmpty) {
             _topSpeedHistory = savedTopSpeedHistory;
         }
 
-        if (savedRoutePoints != null && savedRoutePoints.isNotEmpty)
-        {
-            try
-            {
+        if (savedRoutePoints != null && savedRoutePoints.isNotEmpty) {
+            try {
                 final decoded = jsonDecode(savedRoutePoints);
-                if (decoded is List)
-                {
+                if (decoded is List) {
                     _routePoints = decoded
-                        .map<Map<String, double>>((entry)
-                        {
-                            final point = entry as Map<String, dynamic>;
-                            return <String, double>{
-                                'lat': (point['lat'] as num).toDouble(),
-                                'lng': (point['lng'] as num).toDouble(),
-                            };
-                        })
+                        .map<Map<String, double>>((entry) {
+                        final point = entry as Map<String, dynamic>;
+                        return <String, double>{
+                            'lat': (point['lat'] as num).toDouble(),
+                            'lng': (point['lng'] as num).toDouble(),
+                        };
+                    })
                         .toList(growable: false);
                 }
-            }
-            catch (_) {}
+            } catch (_) {}
         }
     }
 
-    Future<void> _persistAnalytics() async
-    {
+    Future<void> _persistAnalytics() async {
         await LocalSP.setStringData(
             _topSpeedHistoryKey,
-            encodeTopSpeedHistory(_topSpeedHistory)
+            encodeTopSpeedHistory(_topSpeedHistory),
         );
 
         await LocalSP.setStringData(
             _routeHistoryKey,
-            jsonEncode(_routePoints)
+            jsonEncode(_routePoints),
         );
     }
 
-    Future<void> _announceSpeedAlert() async
-    {
-        if (!_voiceAlertReady)
-        {
-            return;
-        }
-
-        try
-        {
+    Future<void> _announceSpeedAlert() async {
+        if (!_voiceAlertReady) return;
+        try {
             await _flutterTts.stop();
             await _flutterTts.speak(
-                'Speed alert. Current speed is ${currentSpeed.round()} kilometers per hour.'
+                'Speed alert. Current speed is ${currentSpeed.round()} kilometers per hour.',
             );
-        }
-        catch (_) {}
+        } catch (_) {}
     }
 
     String get _rpmText => rpmLabelForSpeed(currentSpeed);
     String get _gearLabel => gearLabelForSpeed(currentSpeed);
     String get _signalQuality => signalQualityFromAccuracy(accuracyMeters);
 
-    String get _lastUpdatedLabel
-    {
-        if (lastUpdateTime == null)
-        {
-            return 'Waiting for live GPS';
-        }
-
+    String get _lastUpdatedLabel {
+        if (lastUpdateTime == null) return 'Waiting for live GPS';
         final difference = DateTime.now().difference(lastUpdateTime!);
-        if (difference.inSeconds < 1)
-        {
-            return 'Just now';
-        }
-        if (difference.inMinutes < 1)
-        {
-            return '${difference.inSeconds}s ago';
-        }
-        if (difference.inHours < 1)
-        {
-            return '${difference.inMinutes}m ago';
-        }
-
+        if (difference.inSeconds < 1) return 'Just now';
+        if (difference.inMinutes < 1) return '${difference.inSeconds}s ago';
+        if (difference.inHours < 1) return '${difference.inMinutes}m ago';
         return '${difference.inHours}h ago';
     }
 
     @override
-    void dispose()
-    {
-
+    void dispose() {
         _positionSubscription?.cancel();
         _flutterTts.stop();
         super.dispose();
     }
 
     @override
-    Widget build(BuildContext context)
-    {
+    Widget build(BuildContext context) {
         final theme = Theme.of(context);
 
         return SafeArea(
-          top: false,
-          child: Scaffold(
-              backgroundColor: const Color(0xFF06130F),
-              extendBodyBehindAppBar: true,
-              appBar: AppBar(
-                  title: Text(
-                      'Speedometer',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5
-                      )
-                  ),
-                  centerTitle: true,
-                  backgroundColor: CustomColors.primaryColor,
-                  elevation: 0,
-                  leading: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: ()
-                      {
-                          Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(builder: (_) => const BottomNavBarScreen()),
-                              (route) => false
-                          );
-                      },
-                      child: Container(
-                          margin: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                              color: CustomColors.iconBackgroundColor,
-                              shape: BoxShape.circle
-                          ),
-                          child: const Center(
-                              child: Icon(Icons.arrow_back, color: Color(0xFF004226), size: 22)
-                          )
-                      )
-                  )
-              ),
-              body: Container(
-                  decoration:  BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor
-                  ),
-                  child: SafeArea(
-                      child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-                          child: Column(
-                              children: [
-                                  if (errorText != null) _buildErrorBanner(),
-                                  if (errorText != null) const SizedBox(height: 16),
-                                  _buildStatusHeader(),
-                                  const SizedBox(height: 18),
-                                  Expanded(
-                                      child: SingleChildScrollView(
-                                          child: Column(
-                                              children: [
-                                                  _buildGaugeCard(),
-                                                  const SizedBox(height: 16),
-                                                  _buildLiveMetricsRow(),
-                                                  const SizedBox(height: 16),
-                                                  _buildInfoCard(),
-                                                  const SizedBox(height: 16),
-                                                  Text(
-                                                      'Live GPS speed is active. Other vehicle telemetry is unavailable without OBD data.',
-                                                      textAlign: TextAlign.center,
-                                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                                        fontWeight: FontWeight.bold,
-                                                          height: 1.5
-                                                      )
-                                                  )
-                                              ]
-                                          )
-                                      )
-                                  )
-                              ]
-                          )
-                      )
-                  )
-              ),
-            bottomNavigationBar:BannerAdmob(),
-
-          ),
+            top: false,
+            child: Scaffold(
+                backgroundColor: const Color(0xFF06130F),
+                extendBodyBehindAppBar: true,
+                appBar: AppBar(
+                    title: Text(
+                        'Speedometer',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                        ),
+                    ),
+                    centerTitle: true,
+                    backgroundColor: CustomColors.primaryColor,
+                    elevation: 0,
+                    leading: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                            Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const BottomNavBarScreen()),
+                                    (route) => false,
+                            );
+                        },
+                        child: Container(
+                            margin: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                                color: CustomColors.iconBackgroundColor,
+                                shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                                child: Icon(Icons.arrow_back,
+                                    color: Color(0xFF004226), size: 22),
+                            ),
+                        ),
+                    ),
+                ),
+                body: Container(
+                    decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                    ),
+                    child: SafeArea(
+                        child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+                            child: Column(
+                                children: [
+                                    // ✅ Informational banner (no Settings button, no block)
+                                    if (!hasLocationPermission) _buildPermissionNotice(),
+                                    if (!hasLocationPermission) const SizedBox(height: 16),
+                                    _buildStatusHeader(),
+                                    const SizedBox(height: 18),
+                                    Expanded(
+                                        child: SingleChildScrollView(
+                                            child: Column(
+                                                children: [
+                                                    _buildGaugeCard(),
+                                                    const SizedBox(height: 16),
+                                                    _buildLiveMetricsRow(),
+                                                    const SizedBox(height: 16),
+                                                    _buildInfoCard(),
+                                                    const SizedBox(height: 16),
+                                                    Text(
+                                                        hasLocationPermission
+                                                            ? 'Live GPS speed is active. Other vehicle telemetry is unavailable without OBD data.'
+                                                            : 'Enable location in iOS Settings to start live speed tracking.',
+                                                        textAlign: TextAlign.center,
+                                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                                            fontWeight: FontWeight.bold,
+                                                            height: 1.5,
+                                                        ),
+                                                    ),
+                                                ],
+                                            ),
+                                        ),
+                                    ),
+                                ],
+                            ),
+                        ),
+                    ),
+                ),
+                bottomNavigationBar: BannerAdmob(),
+            ),
         );
     }
 
-    Widget _buildErrorBanner()
-    {
+    /// ✅ Informational only. No Settings button. No redirect.
+    Widget _buildPermissionNotice() {
         return Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+            ),
             decoration: BoxDecoration(
-                color: CustomColors.error,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.7))
+                color: Colors.black.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 5,
                 children: [
-                    Text(
-                        'GPS connection issue',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold
-                        )
+                    const Text(
+                        'Location permission not granted.',
+                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.start,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                        errorText ?? 'Unable to access your location right now.',
-                        style: const TextStyle(color: Colors.white70, height: 1.5)
+                Text(
+                    'Location access is off. Speed tracking will start when location is enabled in Settings.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        height: 1.4,
                     ),
-                    if (isPermissionBlocked)
-                    Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                            onPressed: _openLocationSettings,
-                            icon: const Icon(Icons.settings, size: 18, fontWeight: FontWeight.bold,),
-                            label: Text('Open settings', style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold
-                            ))
-                        )
-                    )
-                ]
-            )
+                ),
+              ],
+            ),
         );
     }
 
-    Widget _buildStatusHeader()
-    {
+    Widget _buildStatusHeader() {
         return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -434,37 +382,38 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
                         Container(
                             width: 15,
                             height: 15,
-                            decoration:  BoxDecoration(
-                                color: Colors.green.shade700,
-                                shape: BoxShape.circle
-                            )
+                            decoration: BoxDecoration(
+                                color: hasLocationPermission
+                                    ? Colors.green.shade700
+                                    : Colors.orange.shade700,
+                                shape: BoxShape.circle,
+                            ),
                         ),
                         const SizedBox(width: 8),
                         Text(
-                            errorText == null ? 'Live GPS tracking' : 'GPS paused',
-                            style:  TextStyle(
+                            hasLocationPermission ? 'Live GPS tracking' : 'GPS paused',
+                            style: const TextStyle(
                                 fontSize: 15,
-                                fontWeight: FontWeight.bold
-                            )
-                        )
-                    ]
+                                fontWeight: FontWeight.bold,
+                            ),
+                        ),
+                    ],
                 ),
                 Text(
                     _lastUpdatedLabel,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)
-                )
-            ]
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+            ],
         );
     }
 
-    Widget _buildGaugeCard()
-    {
+    Widget _buildGaugeCard() {
         return Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-                color:  CustomColors.iconBackgroundColor,
+                color: CustomColors.iconBackgroundColor,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.white12)
+                border: Border.all(color: Colors.white12),
             ),
             child: Column(
                 children: [
@@ -476,16 +425,16 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
                                 minimum: 0,
                                 maximum: 240,
                                 radiusFactor: 0.95,
-                                majorTickStyle:  MajorTickStyle(
+                                majorTickStyle: MajorTickStyle(
                                     length: 12,
                                     thickness: 2,
-                                    color: CustomColors.primaryColor
+                                    color: CustomColors.primaryColor,
                                 ),
                                 minorTicksPerInterval: 4,
-                                minorTickStyle:  MinorTickStyle(
+                                minorTickStyle: MinorTickStyle(
                                     length: 6,
                                     thickness: 1,
-                                    color: CustomColors.primaryColor
+                                    color: CustomColors.primaryColor,
                                 ),
                                 axisLineStyle: const AxisLineStyle(
                                     thickness: 18,
@@ -494,14 +443,14 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
                                             Color(0xFF1DE9B6),
                                             Color(0xFFFFEA00),
                                             Color(0xFFFFB300),
-                                            Color(0xFFFF5252)
+                                            Color(0xFFFF5252),
                                         ],
-                                        stops: [0.2, 0.45, 0.75, 1]
-                                    )
+                                        stops: [0.2, 0.45, 0.75, 1],
+                                    ),
                                 ),
-                                axisLabelStyle:  GaugeTextStyle(
+                                axisLabelStyle: GaugeTextStyle(
                                     fontSize: 14,
-                                    color: CustomColors.primaryColor
+                                    color: CustomColors.primaryColor,
                                 ),
                                 pointers: <GaugePointer>[
                                     NeedlePointer(
@@ -513,16 +462,21 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
                                         needleEndWidth: 5,
                                         needleLength: 0.82,
                                         animationDuration: 1000,
-                                        gradient:  LinearGradient(
-                                            colors: [CustomColors.error, CustomColors.error, CustomColors.error, CustomColors.error]
+                                        gradient: LinearGradient(
+                                            colors: [
+                                                CustomColors.error,
+                                                CustomColors.error,
+                                                CustomColors.error,
+                                                CustomColors.error,
+                                            ],
                                         ),
                                         knobStyle: KnobStyle(
-                                            color:  Colors.white,
+                                            color: Colors.white,
                                             knobRadius: 0.12,
                                             borderColor: CustomColors.primaryColor,
-                                            borderWidth: 0.05
-                                        )
-                                    )
+                                            borderWidth: 0.05,
+                                        ),
+                                    ),
                                 ],
                                 ranges: <GaugeRange>[
                                     GaugeRange(
@@ -530,29 +484,29 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
                                         endValue: 30,
                                         color: const Color(0xFF7C4DFF),
                                         startWidth: 18,
-                                        endWidth: 18
+                                        endWidth: 18,
                                     ),
                                     GaugeRange(
                                         startValue: 30,
                                         endValue: 80,
                                         color: const Color(0xFF1DE9B6),
                                         startWidth: 18,
-                                        endWidth: 18
+                                        endWidth: 18,
                                     ),
                                     GaugeRange(
                                         startValue: 80,
                                         endValue: 160,
                                         color: const Color(0xFFFFEA00),
                                         startWidth: 18,
-                                        endWidth: 18
+                                        endWidth: 18,
                                     ),
                                     GaugeRange(
                                         startValue: 160,
                                         endValue: 240,
                                         color: const Color(0xFFFF5252),
                                         startWidth: 18,
-                                        endWidth: 18
-                                    )
+                                        endWidth: 18,
+                                    ),
                                 ],
                                 annotations: [
                                     GaugeAnnotation(
@@ -561,77 +515,72 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
                                             children: [
                                                 Text(
                                                     formatSpeedLabel(currentSpeed),
-                                                    style:  TextStyle(
+                                                    style: TextStyle(
                                                         fontSize: 48,
                                                         fontWeight: FontWeight.bold,
                                                         color: CustomColors.primaryColor,
-                                                        shadows: [
-                                                            Shadow(color: Colors.white24, blurRadius: 18)
-                                                        ]
-                                                    )
+                                                        shadows: const [
+                                                            Shadow(color: Colors.white24, blurRadius: 18),
+                                                        ],
+                                                    ),
                                                 ),
                                                 const Text(
                                                     'km/h',
                                                     style: TextStyle(
                                                         fontSize: 16,
-                                                        fontWeight: FontWeight.bold
-                                                    )
-                                                )
-                                            ]
+                                                        fontWeight: FontWeight.bold,
+                                                    ),
+                                                ),
+                                            ],
                                         ),
                                         angle: 90,
-                                        positionFactor: 0.68
-                                    )
-                                ]
-                            )
-                        ]
+                                        positionFactor: 0.68,
+                                    ),
+                                ],
+                            ),
+                        ],
                     ),
                     const SizedBox(height: 12),
                     Text(
                         'Gear $_gearLabel • ${_signalQuality.toUpperCase()}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13
-                        )
-                    )
-                ]
-            )
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                ],
+            ),
         );
     }
 
-    Widget _buildLiveMetricsRow()
-    {
+    Widget _buildLiveMetricsRow() {
         return Row(
             children: [
                 Expanded(
                     child: _buildDashboardCard(
                         label: 'RPM',
                         value: _rpmText,
-                        color: Colors.green.shade700
-                    )
+                        color: Colors.green.shade700,
+                    ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                     child: _buildDashboardCard(
                         label: 'Fuel',
                         value: 'N/A',
-                        color: Colors.orangeAccent
-                    )
+                        color: Colors.orangeAccent,
+                    ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                     child: _buildDashboardCard(
                         label: 'Temp',
                         value: 'N/A',
-                        color: Colors.redAccent
-                    )
-                )
-            ]
+                        color: Colors.redAccent,
+                    ),
+                ),
+            ],
         );
     }
 
-    Widget _buildInfoCard()
-    {
+    Widget _buildInfoCard() {
         final accuracyText = accuracyMeters == null
             ? 'Waiting'
             : '${accuracyMeters!.toStringAsFixed(1)} m';
@@ -648,18 +597,18 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
             decoration: BoxDecoration(
                 color: CustomColors.primaryColor,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.white12)
+                border: Border.all(color: Colors.white12),
             ),
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                    Text(
+                    const Text(
                         'Live GPS details',
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
-                            fontWeight: FontWeight.bold
-                        )
+                            fontWeight: FontWeight.bold,
+                        ),
                     ),
                     const SizedBox(height: 14),
                     Wrap(
@@ -669,35 +618,31 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
                             _buildDetailChip('Accuracy', accuracyText),
                             _buildDetailChip('Altitude', altitudeText),
                             _buildDetailChip('Heading', headingText),
-                            _buildDetailChip('Signal', _signalQuality)
-                        ]
-                    )
-                ]
-            )
+                            _buildDetailChip('Signal', _signalQuality),
+                        ],
+                    ),
+                ],
+            ),
         );
     }
 
     Widget _buildDashboardCard({
         required String label,
         required String value,
-        required Color color
-    })
-    {
+        required Color color,
+    }) {
         return Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
                 color: CustomColors.iconBackgroundColor,
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.green.shade700, width: 2)
+                border: Border.all(color: Colors.green.shade700, width: 2),
             ),
             child: Column(
                 children: [
                     Text(
                         label,
-                        style: TextStyle(
-                            fontSize: 13,
-                          fontWeight: FontWeight.bold
-                        )
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -707,33 +652,32 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
                             fontWeight: FontWeight.bold,
                             color: color,
                             shadows: [
-                                Shadow(color: color.withValues(alpha: 0.45), blurRadius: 12)
-                            ]
-                        )
-                    )
-                ]
-            )
+                                Shadow(color: color.withValues(alpha: 0.45), blurRadius: 12),
+                            ],
+                        ),
+                    ),
+                ],
+            ),
         );
     }
 
-    Widget _buildDetailChip(String label, String value)
-    {
+    Widget _buildDetailChip(String label, String value) {
         return Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
                 color: CustomColors.iconBackgroundColor.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(4)
+                borderRadius: BorderRadius.circular(4),
             ),
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                     Text(
                         label,
-                        style: TextStyle(
+                        style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
-                          fontWeight: FontWeight.bold
-                        )
+                            fontWeight: FontWeight.bold,
+                        ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -741,11 +685,11 @@ class _SpeedoMeterScreenState extends State<SpeedoMeterScreen>
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
-                            fontWeight: FontWeight.bold
-                        )
-                    )
-                ]
-            )
+                            fontWeight: FontWeight.bold,
+                        ),
+                    ),
+                ],
+            ),
         );
     }
 }

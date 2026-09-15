@@ -9,8 +9,17 @@ class TrafficProvider extends ChangeNotifier {
   bool trafficEnabled = true;
   bool satelliteMode = false;
   bool isLoading = false;
+
   Position? currentPosition;
+
+  /// Default fallback location shown when permission is denied.
+  /// Change this to a meaningful default for your app.
   LatLng currentLatLng = const LatLng(31.5204, 74.3587);
+
+  /// Whether the user has granted location permission.
+  /// Drives UI decisions (blue dot, my-location button, marker).
+  bool hasLocationPermission = false;
+
   Set<Marker> markers = {};
 
   void setMapController(GoogleMapController controller) {
@@ -27,43 +36,89 @@ class TrafficProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ✅ Accept customMarker from screen
-  Future<void> getCurrentLocation({BitmapDescriptor? customMarker}) async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
+  /// Returns true only if the user has granted permission.
+  /// Never throws — always safe to call.
+  Future<bool> _ensureLocationPermission() async {
+    try {
+      final bool serviceEnabled =
+      await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        hasLocationPermission = false;
+        notifyListeners();
+        return false;
+      }
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      LocationPermission permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        hasLocationPermission = false;
+        notifyListeners();
+        return false;
+      }
+
+      hasLocationPermission = true;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Location permission error: $e');
+      hasLocationPermission = false;
+      notifyListeners();
+      return false;
     }
-
-    currentPosition = await Geolocator.getCurrentPosition();
-    currentLatLng = LatLng(
-      currentPosition!.latitude,
-      currentPosition!.longitude,
-    );
-
-    markers.clear();
-    markers.add(
-      Marker(
-        markerId: const MarkerId('currentLocation'),
-        position: currentLatLng,
-        infoWindow: const InfoWindow(title: 'My Current Location'),
-        // ✅ Use custom marker if ready, else default
-        icon: customMarker ?? BitmapDescriptor.defaultMarker,
-      ),
-    );
-
-    await mapController?.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: currentLatLng, zoom: 16),
-      ),
-    );
-
-    notifyListeners();
   }
 
-  // ✅ Accept customMarker from screen
+  /// Gets the user's current location.
+  /// If permission is denied, the app keeps working with the default
+  /// LatLng and no location marker is added.
+  Future<void> getCurrentLocation({BitmapDescriptor? customMarker}) async {
+    final bool granted = await _ensureLocationPermission();
+
+    if (!granted) {
+      // No permission — do NOT add marker, do NOT move camera.
+      // App remains functional using the default currentLatLng.
+      return;
+    }
+
+    try {
+      currentPosition = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      currentLatLng = LatLng(
+        currentPosition!.latitude,
+        currentPosition!.longitude,
+      );
+
+      markers.clear();
+      markers.add(
+        Marker(
+          markerId: const MarkerId('currentLocation'),
+          position: currentLatLng,
+          infoWindow: const InfoWindow(title: 'My Current Location'),
+          icon: customMarker ?? BitmapDescriptor.defaultMarker,
+        ),
+      );
+
+      await mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: currentLatLng, zoom: 16),
+        ),
+      );
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('getCurrentLocation error: $e');
+    }
+  }
+
+  /// Searches for an address. Does NOT require location permission.
   Future<void> searchLocation({BitmapDescriptor? customMarker}) async {
     if (searchController.text.trim().isEmpty) return;
 
@@ -71,7 +126,7 @@ class TrafficProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      List<Location> locations = await locationFromAddress(
+      final List<Location> locations = await locationFromAddress(
         searchController.text.trim(),
       );
 
@@ -88,7 +143,6 @@ class TrafficProvider extends ChangeNotifier {
             markerId: const MarkerId('searchedLocation'),
             position: searchedLocation,
             infoWindow: InfoWindow(title: searchController.text.trim()),
-            // ✅ Use custom marker if ready, else default
             icon: customMarker ?? BitmapDescriptor.defaultMarker,
           ),
         );
@@ -115,5 +169,11 @@ class TrafficProvider extends ChangeNotifier {
 
   Future<void> zoomOut() async {
     await mapController?.animateCamera(CameraUpdate.zoomOut());
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 }

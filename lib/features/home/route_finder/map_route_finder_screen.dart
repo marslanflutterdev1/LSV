@@ -32,9 +32,7 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
     _provider = Provider.of<RouteFinderProvider>(context, listen: false);
     _pulseTimer = Timer.periodic(const Duration(milliseconds: 700), (_) {
       if (!mounted) return;
-      setState(() {
-        _pulseVisible = !_pulseVisible;
-      });
+      setState(() => _pulseVisible = !_pulseVisible);
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -48,6 +46,7 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
           liveMarker: liveMarker,
         );
         if (!mounted) return;
+        // ✅ Safe to call even if permission is denied.
         await _provider.startLiveTracking();
       } catch (e) {
         if (!mounted) return;
@@ -77,14 +76,12 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
       targetWidth: 40,
       targetHeight: 40,
     );
-
     liveMarker ??= await CustomMarker.setMarker(
       path: 'assets/images/live.png',
       targetWidth: 40,
       targetHeight: 40,
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -105,8 +102,12 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
               backgroundColor: CustomColors.primaryColor,
               leading: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: (){
-                  Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_)=> RouteFinderScreen()), (r)=> false);
+                onTap: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RouteFinderScreen()),
+                        (r) => false,
+                  );
                 },
                 child: Container(
                   margin: const EdgeInsets.all(12),
@@ -116,7 +117,6 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
                   ),
                   child: Center(
                     child: Icon(
-                      // Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back,
                       Icons.arrow_back,
                       color: CustomColors.primaryColor,
                       fontWeight: FontWeight.bold,
@@ -131,12 +131,14 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
                 children: [
                   GoogleMap(
                     initialCameraPosition: CameraPosition(
-                      target: provider.sourceLatLng ?? const LatLng(31.4504, 73.1350),
+                      target:
+                      provider.sourceLatLng ?? const LatLng(31.4504, 73.1350),
                       zoom: 18,
                     ),
                     mapType: MapType.normal,
-                    myLocationEnabled: true,
-                    myLocationButtonEnabled: true,
+                    // ✅ Conditional — only when permission granted.
+                    myLocationEnabled: provider.hasLocationPermission,
+                    myLocationButtonEnabled: provider.hasLocationPermission,
                     zoomControlsEnabled: true,
                     compassEnabled: true,
                     mapToolbarEnabled: false,
@@ -187,7 +189,10 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
                           Expanded(
                             child: Text(
                               provider.liveStatusLabel,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
                                 color: Colors.black87,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -200,9 +205,9 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
                                   .textTheme
                                   .bodySmall
                                   ?.copyWith(
-                                    color: provider.liveStatusColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                color: provider.liveStatusColor,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           if (provider.isLiveTracking || provider.isRerouting)
                             Padding(
@@ -220,6 +225,43 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
                       ),
                     ),
                   ),
+                  // ✅ Small info banner when permission denied (no Settings button)
+                  if (!provider.hasLocationPermission)
+                    Positioned(
+                      top: 60,
+                      left: 16,
+                      right: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: CustomColors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline,
+                                color: CustomColors.primaryColor, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Location access is off. Route is shown, but live tracking is paused until location is enabled in Settings.',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   if (provider.isOffRoute)
                     Positioned(
                       top: 60,
@@ -255,16 +297,15 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
                                     .textTheme
                                     .bodyMedium
                                     ?.copyWith(
-                                      color: Colors.orange.shade800,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                  color: Colors.orange.shade800,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-
                   Positioned(
                     left: 16,
                     right: 16,
@@ -287,7 +328,10 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
                         children: [
                           Text(
                             'Estimated time of arrival',
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyLarge
+                                ?.copyWith(
                               color: CustomColors.white,
                               fontWeight: FontWeight.bold,
                             ),
@@ -332,9 +376,9 @@ class _MapRouteFinderScreenState extends State<MapRouteFinderScreen> {
                                       .textTheme
                                       .bodyMedium
                                       ?.copyWith(
-                                        color: Colors.orange.shade800,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                    color: Colors.orange.shade800,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
@@ -374,7 +418,10 @@ class _RouteMetricTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: CustomColors.white, fontWeight: FontWeight.bold,),
+              Icon(icon,
+                  size: 16,
+                  color: CustomColors.white,
+                  fontWeight: FontWeight.bold),
               const SizedBox(width: 6),
               Text(
                 title,

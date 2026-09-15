@@ -233,11 +233,12 @@ class _SearchingNearbyPlacesScreenState extends State<SearchingNearbyPlacesScree
             place.geometry!.location!.lat!,
             place.geometry!.location!.lng!,
           ),
-          icon: isSelected
-              ? selectMarker ??
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)
-              : nearbyMarker ??
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose),
+          // icon: isSelected
+              // ? selectMarker ??
+              // BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed)
+              // : nearbyMarker ??
+              // BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
           infoWindow: InfoWindow(
             title: place.name,
             snippet: place.vicinity,
@@ -301,8 +302,10 @@ class _SearchingNearbyPlacesScreenState extends State<SearchingNearbyPlacesScree
           child: GoogleMap(
             initialCameraPosition: CameraPosition(target: _initialTarget, zoom: 10),
             markers: markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
+            // ✅ This screen does not need the SDK live-location dot.
+            // The "you are here" marker is drawn manually from widget.currentLocation.
+            myLocationEnabled: false,
+            myLocationButtonEnabled: false,
             onMapCreated: (controller) {
               mapController = controller;
               if (widget.selectedPlace != null) {
@@ -315,8 +318,7 @@ class _SearchingNearbyPlacesScreenState extends State<SearchingNearbyPlacesScree
               }
             },
           ),
-        ),
-        bottomNavigationBar: BannerAdmob(),
+        ),        bottomNavigationBar: BannerAdmob(),
       ),
     );
   }

@@ -60,9 +60,20 @@ class _NearbyPlacesScreenState extends State<NearbyPlacesScreen> {
 
   Future<void> getCurrentLocation() async {
     final position = await CustomLocationPermissionHandler.determinePosition();
+
+    // ✅ Null check — permission may be denied.
+    if (position == null) {
+      if (!mounted) return;
+      setState(() {
+        currentLatLng = const LatLng(31.5204, 74.3587); // fallback region
+        cameraPosition = CameraPosition(target: currentLatLng!, zoom: 15);
+      });
+      return;
+    }
+
     currentLatLng = LatLng(position.latitude, position.longitude);
     cameraPosition = CameraPosition(target: currentLatLng!, zoom: 15);
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   void updateMarkers(NearByPlacesModel model) {

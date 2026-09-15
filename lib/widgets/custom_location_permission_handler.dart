@@ -1,60 +1,45 @@
 import 'dart:developer';
-
 import 'package:geolocator/geolocator.dart';
 
 class CustomLocationPermissionHandler {
   CustomLocationPermissionHandler._();
 
-
-  /// Determine the current position of the device.
-  ///
-  /// When the location services are not enabled or permissions
-  /// are denied the `Future` will return an error.
-  static Future<Position> determinePosition() async {
-
+  /// Returns the current Position, or null if permission is denied
+  /// or location services are disabled.
+  /// Never throws — the app must remain functional without location.
+  static Future<Position?> determinePosition() async {
     final GeolocatorPlatform geolocatorPlatform = GeolocatorPlatform.instance;
 
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    // Test if location services are enabled.
-    serviceEnabled = await geolocatorPlatform.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      // Location services are not enabled don't continue
-      // accessing the position and request users of the
-      // App to enable the location services.
-      return Future.error('Location services are disabled.');
-    }
-
-    permission = await geolocatorPlatform.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await geolocatorPlatform.requestPermission();
-      if (permission == LocationPermission.denied) {
-        // Permissions are denied, next time you could try
-        // requesting permissions again (this is also where
-        // Android's shouldShowRequestPermissionRationale
-        // returned true. According to Android guidelines
-        // your App should show an explanatory UI now.
-        log('User denied permission');
-
-        return Future.error('Location permissions are denied');
-
+    try {
+      // 1. Check if location services are enabled on the device
+      final bool serviceEnabled =
+      await geolocatorPlatform.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        log('Location services are disabled on device.');
+        return null;
       }
+
+      // 2. Check current permission
+      LocationPermission permission =
+      await geolocatorPlatform.checkPermission();
+
+      // 3. Request permission if not yet decided
+      if (permission == LocationPermission.denied) {
+        permission = await geolocatorPlatform.requestPermission();
+      }
+
+      // 4. If denied or denied forever, return null (do NOT throw)
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        log('Location permission denied. App will run without it.');
+        return null;
+      }
+
+      // 5. Permission granted — get current position
+      return await geolocatorPlatform.getCurrentPosition();
+    } catch (e) {
+      log('determinePosition error: $e');
+      return null;
     }
-
-    if (permission == LocationPermission.deniedForever) {
-
-      /// Permissions are denied forever, handle appropriately.
-
-      log('Permission denied forever');
-
-      return Future.error('Location permissions are permanently denied, we cannot request permissions.');
-
-    }
-
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
-    return await geolocatorPlatform.getCurrentPosition();
   }
-
 }
