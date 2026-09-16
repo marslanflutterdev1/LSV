@@ -83,6 +83,9 @@
 
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Live Satellite View uses your location to show your position on the map and provide location-based features such as nearby places and route navigation.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Live Satellite View uses your location to support map positioning, nearby place search and route navigation when you choose to use these features.</string>
+
 
     <!-- ============================= -->
     <!-- Camera -->

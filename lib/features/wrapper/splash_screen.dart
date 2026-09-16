@@ -1,7 +1,5 @@
-import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:satellite_view/features/bottom_nav_bar/bottom_nav_bar_screen.dart';
 import 'package:satellite_view/features/wrapper/onboarding_screen.dart';
 import '../../core/theme/custom_colors.dart';
 
@@ -15,18 +13,21 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
-    wrapper();
     super.initState();
+    wrapper();
   }
 
   Future<void> wrapper() async {
-    Future.delayed(Duration(seconds: 3), () async {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => OnboardingScreen()),
-        (r) => false,
-      );
-    });
+    await Future.delayed(const Duration(seconds: 3));
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => OnboardingScreen()),
+          (r) => false,
+    );
   }
 
   @override
