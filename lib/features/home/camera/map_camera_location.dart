@@ -1,36 +1,32 @@
-// ============================================
-// COMPLETE MAP CAMERA FLUTTER PACKAGE
-// Single file implementation - FIXED VERSION (5.1.5 compliant)
-// ============================================
-
-import 'dart:io';
-import 'dart:math';
-import 'dart:ui' as ui;
 import 'dart:async';
+import 'dart:developer';
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
-import 'package:camera/camera.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart' as lat;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:path_provider/path_provider.dart';
+
 import 'package:satellite_view/core/theme/custom_colors.dart';
-import 'package:satellite_view/main.dart';
 import 'package:satellite_view/widgets/custom_button.dart';
 import 'package:satellite_view/widgets/custom_circle_progress_indicator.dart';
-import 'package:satellite_view/widgets/custom_location_permission_handler.dart';
 
 import '../../../mob_ads/banner_ads/banner_ad_mob.dart';
 import '../../bottom_nav_bar/bottom_nav_bar_screen.dart';
+import '../../../main.dart';
 
-// ============================================
+
+// ============================================================
 // DATA MODELS
-// ============================================
+// ============================================================
 
 class LocationData {
   final String? latitude;
@@ -38,7 +34,7 @@ class LocationData {
   final String? locationName;
   final String? subLocation;
 
-  LocationData({
+  const LocationData({
     required this.latitude,
     required this.longitude,
     required this.locationName,
@@ -55,141 +51,61 @@ class LocationData {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(latitude, longitude, locationName, subLocation);
+  int get hashCode {
+    return Object.hash(
+      latitude,
+      longitude,
+      locationName,
+      subLocation,
+    );
+  }
 }
+
 
 class ImageAndLocationData {
   final String? imagePath;
   final LocationData? locationData;
 
-  String? get latitude => locationData?.latitude;
-  String? get longitude => locationData?.longitude;
-  String? get locationName => locationData?.locationName;
-  String? get subLocation => locationData?.subLocation;
-
-  ImageAndLocationData({required this.imagePath, required this.locationData});
-}
-
-typedef ImageAndLocationCallback = void Function(ImageAndLocationData data);
-
-// ============================================
-// ENUMS
-// ============================================
-
-enum AlignOnUpdate { always, never }
-
-// ============================================
-// CUSTOM CURRENT LOCATION LAYER
-// ============================================
-
-class CurrentLocationLayer extends StatefulWidget {
-  final Stream<double?> alignPositionStream;
-  final AlignOnUpdate alignPositionOnUpdate;
-  final MapController mapController;
-  final bool mapReady;
-  final LatLngDataProvider? locationProvider;
-
-  const CurrentLocationLayer({
-    super.key,
-    required this.alignPositionStream,
-    required this.alignPositionOnUpdate,
-    required this.mapController,
-    required this.mapReady,
-    this.locationProvider,
+  const ImageAndLocationData({
+    required this.imagePath,
+    required this.locationData,
   });
 
-  @override
-  State<CurrentLocationLayer> createState() => _CurrentLocationLayerState();
+  String? get latitude => locationData?.latitude;
+
+  String? get longitude => locationData?.longitude;
+
+  String? get locationName => locationData?.locationName;
+
+  String? get subLocation => locationData?.subLocation;
 }
 
-/// Simple interface for providing location updates without calling
-/// Geolocator directly. The parent widget owns the permission state.
-abstract class LatLngDataProvider {
-  Stream<lat.LatLng?> get positionStream;
-}
 
-class _CurrentLocationLayerState extends State<CurrentLocationLayer> {
-  lat.LatLng? _currentPosition;
-  StreamSubscription<double?>? _alignPositionSubscription;
-
-  bool get _isControllerReady {
-    try {
-      widget.mapController;
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _listenToPositionUpdates();
-  }
-
-  @override
-  void dispose() {
-    _alignPositionSubscription?.cancel();
-    super.dispose();
-  }
-
-  void _listenToPositionUpdates() {
-    _alignPositionSubscription = widget.alignPositionStream.listen((zoom) {
-      if (!mounted) return;
-      // ✅ Position updates come from parent — no direct Geolocator call.
-      _updatePosition();
-    });
-  }
-
-  Future<void> _updatePosition() async {
-    // If parent supplies a position provider, use it.
-    // Otherwise, do nothing (no permission dependency here).
-    if (widget.locationProvider != null) {
-      // This is a passive listener — the parent pushes the current position
-      // through the alignPositionStream. We don't re-query Geolocator.
-    }
-  }
-
-  void setPosition(lat.LatLng position) {
-    if (!mounted) return;
-    setState(() {
-      _currentPosition = position;
-    });
-
-    if (widget.alignPositionOnUpdate == AlignOnUpdate.always &&
-        _isControllerReady &&
-        widget.mapReady) {
-      widget.mapController.move(position, 13.0);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_currentPosition == null) {
-      return const SizedBox.shrink();
-    }
-
-    return MarkerLayer(
-      markers: [
-        Marker(
-          width: 80.0,
-          height: 80.0,
-          point: _currentPosition!,
-          alignment: Alignment.center,
-          child: const Icon(Icons.location_on, color: Colors.red, size: 40.0),
-        ),
-      ],
+typedef ImageAndLocationCallback = void Function(
+    ImageAndLocationData data,
     );
-  }
+
+
+// ============================================================
+// CAMERA ERROR TYPE
+// ============================================================
+
+enum _CameraErrorType {
+  denied,
+  deniedWithoutPrompt,
+  restricted,
+  unavailable,
+  unknown,
 }
 
-// ============================================
-// MAIN WIDGET - MapCameraLocation
-// ============================================
+
+// ============================================================
+// MAIN WIDGET
+// ============================================================
 
 class MapCameraLocation extends StatefulWidget {
   final CameraDescription camera;
+
   final ImageAndLocationCallback? onImageCaptured;
 
   const MapCameraLocation({
@@ -202,136 +118,717 @@ class MapCameraLocation extends StatefulWidget {
   State<MapCameraLocation> createState() => _MapCameraLocationState();
 }
 
-class _MapCameraLocationState extends State<MapCameraLocation> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
-  late AlignOnUpdate _followOnLocationUpdate;
-  late StreamController<double?> _followCurrentLocationStreamController;
-  late MapController _mapController;
-  bool _isMapReady = false;
 
-  /// Whether location permission is granted. Drives location UI.
+// ============================================================
+// STATE
+// ============================================================
+
+class _MapCameraLocationState extends State<MapCameraLocation>
+    with WidgetsBindingObserver {
+
+  // ----------------------------------------------------------
+  // Camera
+  // ----------------------------------------------------------
+
+  CameraController? _controller;
+
+  Future<void>? _initializeControllerFuture;
+
+  _CameraErrorType? _cameraErrorType;
+
+  String? _cameraErrorMessage;
+
+  bool _isCameraInitializing = true;
+
+
+  // ----------------------------------------------------------
+  // Location
+  // ----------------------------------------------------------
+
   bool hasLocationPermission = false;
 
-  File? cameraImagePath;
-  String? dateTime;
-  LocationData? locationData;
-  Timer? _positionTimer;
+  bool _isLoadingLocation = false;
 
-  final globalKey = GlobalKey();
+  LocationData? locationData;
+
+
+  // ----------------------------------------------------------
+  // Screenshot
+  // ----------------------------------------------------------
+
+  File? cameraImagePath;
+
+  final GlobalKey _globalKey = GlobalKey();
+
+
+  // ----------------------------------------------------------
+  // UI
+  // ----------------------------------------------------------
+
+  String? dateTime;
+
+  final MapController _mapController = MapController();
+
+  bool _isMapReady = false;
+
+  lat.LatLng? _currentLatLng;
+
+
+  // ----------------------------------------------------------
+  // Lifecycle
+  // ----------------------------------------------------------
+
+  bool _isDisposed = false;
+
+  bool _locationRequestInProgress = false;
+
+
+  // ==========================================================
+  // INIT
+  // ==========================================================
 
   @override
   void initState() {
     super.initState();
 
-    _positionTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (mounted) {
-        await updatePosition(context);
-        _followCurrentLocationStreamController.add(null);
-      }
-    });
+    WidgetsBinding.instance.addObserver(this);
 
-    _controller = CameraController(
+    dateTime = DateFormat.yMd().add_jm().format(
+      DateTime.now(),
+    );
+
+    _initializeCamera();
+
+    // Location is OPTIONAL.
+    //
+    // We deliberately do not make camera initialization depend
+    // on location.
+    //
+    // Camera must work even if:
+    // - Location Services are disabled
+    // - location permission is denied
+    // - location permission is restricted
+    // - geocoding fails
+    //
+    Future.delayed(
+      const Duration(milliseconds: 700),
+          () {
+        if (mounted) {
+          _loadLocation();
+        }
+      },
+    );
+  }
+
+
+  // ==========================================================
+  // CAMERA INITIALIZATION
+  // ==========================================================
+
+  Future<void> _initializeCamera() async {
+    if (_isDisposed) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isCameraInitializing = true;
+        _cameraErrorType = null;
+        _cameraErrorMessage = null;
+      });
+    }
+
+    CameraController? previousController = _controller;
+
+    if (previousController != null) {
+      try {
+        await previousController.dispose();
+      } catch (_) {}
+    }
+
+    final CameraController controller = CameraController(
       widget.camera,
-      ResolutionPreset.veryHigh,
+      ResolutionPreset.high,
       enableAudio: false,
     );
-    _initializeControllerFuture = _controller.initialize();
-    _mapController = MapController();
-    _followOnLocationUpdate = AlignOnUpdate.always;
-    _followCurrentLocationStreamController =
-        StreamController<double?>.broadcast();
 
-    dateTime = DateFormat.yMd().add_jm().format(DateTime.now());
-  }
+    _controller = controller;
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    _followCurrentLocationStreamController.close();
-    _positionTimer?.cancel();
-    super.dispose();
-  }
+    final Future<void> initialization = controller.initialize();
 
-  @override
-  void setState(fn) {
-    if (mounted) {
-      super.setState(fn);
+    _initializeControllerFuture = initialization;
+
+    try {
+      await initialization;
+
+      if (_isDisposed || !mounted) {
+        return;
+      }
+
+      if (!controller.value.isInitialized) {
+        throw CameraException(
+          'CameraInitializationFailed',
+          'The camera controller did not initialize correctly.',
+        );
+      }
+
+      setState(() {
+        _isCameraInitializing = false;
+        _cameraErrorType = null;
+        _cameraErrorMessage = null;
+      });
+
+      log(
+        'Camera initialized successfully: ${widget.camera.name}',
+      );
+
+    } on CameraException catch (e, stackTrace) {
+      log(
+        'Camera initialization failed: ${e.code}',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
+      if (_isDisposed || !mounted) {
+        return;
+      }
+
+      setState(() {
+        _isCameraInitializing = false;
+
+        switch (e.code) {
+          case 'CameraAccessDenied':
+            _cameraErrorType = _CameraErrorType.denied;
+            _cameraErrorMessage =
+            'Camera access was denied. Allow camera access to use the Camera feature.';
+            break;
+
+          case 'CameraAccessDeniedWithoutPrompt':
+            _cameraErrorType =
+                _CameraErrorType.deniedWithoutPrompt;
+            _cameraErrorMessage =
+            'Camera access is currently turned off. Please enable camera access in Settings.';
+            break;
+
+          case 'CameraAccessRestricted':
+            _cameraErrorType =
+                _CameraErrorType.restricted;
+            _cameraErrorMessage =
+            'Camera access is restricted on this device.';
+            break;
+
+          default:
+            _cameraErrorType =
+                _CameraErrorType.unknown;
+            _cameraErrorMessage =
+            'The camera could not be initialized. Please try again.';
+        }
+      });
+
+    } catch (e, stackTrace) {
+      log(
+        'Unexpected camera initialization error',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
+      if (_isDisposed || !mounted) {
+        return;
+      }
+
+      setState(() {
+        _isCameraInitializing = false;
+        _cameraErrorType = _CameraErrorType.unknown;
+        _cameraErrorMessage =
+        'The camera could not be initialized. Please try again.';
+      });
     }
   }
+
+
+  // ==========================================================
+  // APP LIFECYCLE
+  // ==========================================================
+
+  @override
+  void didChangeAppLifecycleState(
+      AppLifecycleState state,
+      ) {
+    super.didChangeAppLifecycleState(state);
+
+    final CameraController? controller = _controller;
+
+    if (controller == null) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      log('Camera lifecycle: disposing controller');
+
+      controller.dispose();
+
+      _controller = null;
+      _initializeControllerFuture = null;
+
+      if (mounted) {
+        setState(() {
+          _isCameraInitializing = true;
+        });
+      }
+
+    } else if (state == AppLifecycleState.resumed) {
+      log('Camera lifecycle: reinitializing controller');
+
+      if (_controller == null && mounted) {
+        _initializeCamera();
+      }
+    }
+  }
+
+
+  // ==========================================================
+  // LOCATION
+  // ==========================================================
+
+  Future<void> _loadLocation() async {
+    if (_isDisposed ||
+        _locationRequestInProgress ||
+        !mounted) {
+      return;
+    }
+
+    _locationRequestInProgress = true;
+
+    if (mounted) {
+      setState(() {
+        _isLoadingLocation = true;
+      });
+    }
+
+    try {
+      final Position? position = await _getOptionalPosition();
+
+      if (_isDisposed || !mounted) {
+        return;
+      }
+
+      if (position == null) {
+        setState(() {
+          hasLocationPermission = false;
+          _isLoadingLocation = false;
+
+          locationData = const LocationData(
+            latitude: null,
+            longitude: null,
+            locationName: 'Location unavailable',
+            subLocation:
+            'Camera works without location access.',
+          );
+
+          _currentLatLng = null;
+        });
+
+        return;
+      }
+
+      final LocationData data =
+      await _createLocationData(position);
+
+      if (_isDisposed || !mounted) {
+        return;
+      }
+
+      setState(() {
+        hasLocationPermission = true;
+        _isLoadingLocation = false;
+        locationData = data;
+
+        _currentLatLng = lat.LatLng(
+          position.latitude,
+          position.longitude,
+        );
+      });
+
+    } catch (e, stackTrace) {
+      log(
+        'Optional location error',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
+      if (_isDisposed || !mounted) {
+        return;
+      }
+
+      setState(() {
+        hasLocationPermission = false;
+        _isLoadingLocation = false;
+
+        locationData = const LocationData(
+          latitude: null,
+          longitude: null,
+          locationName: 'Location unavailable',
+          subLocation:
+          'Camera works without location access.',
+        );
+
+        _currentLatLng = null;
+      });
+
+    } finally {
+      _locationRequestInProgress = false;
+    }
+  }
+
+
+  /// Optional location access.
+  ///
+  /// This method NEVER opens Settings.
+  /// It NEVER blocks camera functionality.
+  Future<Position?> _getOptionalPosition() async {
+    try {
+      final bool serviceEnabled =
+      await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        log('Location Services are disabled.');
+        return null;
+      }
+
+      LocationPermission permission =
+      await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission =
+        await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied) {
+        log('Location permission denied.');
+        return null;
+      }
+
+      if (permission ==
+          LocationPermission.deniedForever) {
+        log('Location permission permanently denied.');
+        return null;
+      }
+
+
+
+      final Position position =
+      await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      return position;
+
+    } catch (e, stackTrace) {
+      log(
+        'Optional location failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
+      return null;
+    }
+  }
+
+
+  Future<LocationData> _createLocationData(
+      Position position,
+      ) async {
+    try {
+      final List<Placemark> placemarks =
+      await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        final Placemark place = placemarks.first;
+
+        final String locationName =
+        _cleanLocationText(
+          [
+            place.locality,
+            place.administrativeArea,
+            place.country,
+          ],
+        );
+
+        final String subLocation =
+        _cleanLocationText(
+          [
+            place.street,
+            place.thoroughfare,
+            place.subAdministrativeArea,
+          ],
+        );
+
+        return LocationData(
+          latitude: position.latitude.toStringAsFixed(6),
+          longitude: position.longitude.toStringAsFixed(6),
+          locationName:
+          locationName.isEmpty
+              ? 'Current location'
+              : locationName,
+          subLocation:
+          subLocation.isEmpty
+              ? 'Location details unavailable'
+              : subLocation,
+        );
+      }
+
+    } catch (e, stackTrace) {
+      log(
+        'Reverse geocoding failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return LocationData(
+      latitude: position.latitude.toStringAsFixed(6),
+      longitude: position.longitude.toStringAsFixed(6),
+      locationName: 'Current location',
+      subLocation: 'Address unavailable',
+    );
+  }
+
+
+  String _cleanLocationText(
+      List<String?> values,
+      ) {
+    return values
+        .where(
+          (value) =>
+      value != null &&
+          value.trim().isNotEmpty,
+    )
+        .map((value) => value!.trim())
+        .join(', ');
+  }
+
+
+  // ==========================================================
+  // BUILD
+  // ==========================================================
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            'Camera',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+        appBar: _buildAppBar(),
+        backgroundColor:
+        Theme.of(context).scaffoldBackgroundColor,
+
+        body: _buildBody(),
+
+        bottomNavigationBar:
+        _buildBottomNavigationBar(),
+      ),
+    );
+  }
+
+
+  // ==========================================================
+  // BODY
+  // ==========================================================
+
+  Widget _buildBody() {
+    if (_isCameraInitializing) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_cameraErrorType != null ||
+        _controller == null) {
+      return _buildCameraErrorView();
+    }
+
+    final CameraController controller =
+    _controller!;
+
+    if (!controller.value.isInitialized) {
+      return _buildCameraErrorView();
+    }
+
+    return RepaintBoundary(
+      key: _globalKey,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CameraPreview(controller),
+
+          _buildBottomOverlay(),
+        ],
+      ),
+    );
+  }
+
+
+  // ==========================================================
+  // APP BAR
+  // ==========================================================
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      title: Text(
+        'Camera',
+        style:
+        Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      centerTitle: true,
+      backgroundColor: CustomColors.primaryColor,
+
+      leading: isGps
+          ? const SizedBox.shrink()
+          : GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  BottomNavBarScreen(),
             ),
+                (route) => false,
+          );
+        },
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color:
+            CustomColors.iconBackgroundColor,
+            shape: BoxShape.circle,
           ),
-          centerTitle: true,
-          backgroundColor: CustomColors.primaryColor,
-          leading: isGps
-              ? SizedBox.shrink()
-              : GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(builder: (_) => BottomNavBarScreen()),
-                      (r) => false,
-                    );
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: CustomColors.iconBackgroundColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Icon(
-                        Icons.arrow_back,
-                        color: CustomColors.primaryColor,
-                        fontWeight: FontWeight.bold,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-        ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: FutureBuilder<void>(
-          future: _initializeControllerFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done) {
-              return RepaintBoundary(
-                key: globalKey,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [CameraPreview(_controller), _buildBottomOverlay()],
-                ),
-              );
-            } else {
-              return const Center(child: CircularProgressIndicator());
-            }
-          },
-        ),
-        bottomNavigationBar: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          decoration: const BoxDecoration(color: Colors.transparent),
-          child: CustomButton(
-            text: 'Pick Image',
-            onPressed: _takeScreenshot,
-            isLoading: false,
+          child: Center(
+            child: Icon(
+              Icons.arrow_back,
+              color:
+              CustomColors.primaryColor,
+              size: 24,
+            ),
           ),
         ),
       ),
     );
   }
+
+
+  // ==========================================================
+  // CAMERA ERROR VIEW
+  // ==========================================================
+
+  Widget _buildCameraErrorView() {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment:
+            MainAxisAlignment.center,
+            children: [
+              Icon(
+                _cameraErrorType ==
+                    _CameraErrorType.restricted
+                    ? Icons.block
+                    : Icons.camera_alt_outlined,
+                size: 72,
+                color: CustomColors.primaryColor,
+              ),
+
+              const SizedBox(height: 20),
+
+              Text(
+                _cameraErrorTitle(),
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              Text(
+                _cameraErrorMessage ??
+                    'Camera is currently unavailable.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge,
+              ),
+
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    _initializeCamera();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text(
+                    'Try Again',
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              Text(
+                'If camera access was previously denied, '
+                    'iOS may require you to enable it in Settings.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  String _cameraErrorTitle() {
+    switch (_cameraErrorType) {
+      case _CameraErrorType.denied:
+        return 'Camera Permission Denied';
+
+      case _CameraErrorType.deniedWithoutPrompt:
+        return 'Camera Access Is Off';
+
+      case _CameraErrorType.restricted:
+        return 'Camera Access Restricted';
+
+      case _CameraErrorType.unavailable:
+        return 'Camera Unavailable';
+
+      case _CameraErrorType.unknown:
+      case null:
+        return 'Camera Error';
+    }
+  }
+
+
+  // ==========================================================
+  // BOTTOM OVERLAY
+  // ==========================================================
 
   Widget _buildBottomOverlay() {
     return Positioned(
@@ -339,309 +836,480 @@ class _MapCameraLocationState extends State<MapCameraLocation> {
       right: 0,
       bottom: 5,
       child: Column(
-        spacing: 8,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding:
+            const EdgeInsets.symmetric(
+              horizontal: 10,
+            ),
             child: SizedBox(
               height: 160,
               child: Row(
-                spacing: 5,
                 children: [
                   Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: CustomColors.primaryColor,
-                          width: 2,
-                        ),
-                      ),
-                      child: locationData == null
-                          ? const Center(child: CustomCircleProgressIndicator())
-                          : Padding(
-                              padding: const EdgeInsets.all(2.0),
-                              child: Center(
-                                child: FlutterMap(
-                                  mapController: _mapController,
-                                  options: MapOptions(
-                                    initialCenter:
-                                        locationData?.latitude != null &&
-                                            locationData?.longitude != null
-                                        ? lat.LatLng(
-                                            double.tryParse(
-                                                  locationData!.latitude!,
-                                                ) ??
-                                                0.0,
-                                            double.tryParse(
-                                                  locationData!.longitude!,
-                                                ) ??
-                                                0.0,
-                                          )
-                                        : const lat.LatLng(0, 0),
-                                    initialZoom: 0.0,
-                                    onPositionChanged: (position, hasGesture) {
-                                      if (hasGesture) {
-                                        setState(() {
-                                          _followOnLocationUpdate =
-                                              AlignOnUpdate.never;
-                                        });
-                                      }
-                                    },
-                                    onMapReady: () {
-                                      setState(() {
-                                        _isMapReady = true;
-                                      });
-                                    },
-                                  ),
-                                  children: [
-                                    TileLayer(
-                                      urlTemplate:
-                                          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-                                      subdomains: const ['a', 'b', 'c', 'd'],
-                                      userAgentPackageName:
-                                          'com.maps.sateliteview',
-                                      minZoom: 0.0,
-                                    ),
-                                    // ✅ Only show current location layer if
-                                    // permission was granted.
-                                    if (hasLocationPermission)
-                                      CurrentLocationLayer(
-                                        alignPositionStream:
-                                            _followCurrentLocationStreamController
-                                                .stream,
-                                        alignPositionOnUpdate:
-                                            _followOnLocationUpdate,
-                                        mapController: _mapController,
-                                        mapReady: _isMapReady,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                    ),
+                    child: _buildMiniMap(),
                   ),
+
+                  const SizedBox(width: 5),
+
                   Expanded(
                     flex: 2,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: CustomColors.primaryColor,
-                          width: 2,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              locationData?.locationName ??
-                                  (hasLocationPermission
-                                      ? "Loading..."
-                                      : "Location unavailable"),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              locationData?.subLocation ??
-                                  (hasLocationPermission
-                                      ? "Loading .."
-                                      : "Enable location in Settings to see address"),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              "Lat ${locationData?.latitude ?? (hasLocationPermission ? "Loading.." : "--")}",
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              "Long ${locationData?.longitude ?? (hasLocationPermission ? "Loading.." : "--")}",
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              dateTime ?? "Loading...",
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    child: _buildLocationCard(),
                   ),
                 ],
               ),
             ),
           ),
+
+          const SizedBox(height: 8),
+
           BannerAdmob(),
         ],
       ),
     );
   }
 
+
+  // ==========================================================
+  // MINI MAP
+  // ==========================================================
+
+  Widget _buildMiniMap() {
+    final lat.LatLng center =
+        _currentLatLng ??
+            const lat.LatLng(
+              31.5204,
+              74.3587,
+            );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.4),
+        borderRadius:
+        BorderRadius.circular(4),
+        border: Border.all(
+          color: CustomColors.primaryColor,
+          width: 2,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius:
+        BorderRadius.circular(2),
+        child: FlutterMap(
+          mapController: _mapController,
+
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom:
+            _currentLatLng == null
+                ? 5
+                : 13,
+
+            onMapReady: () {
+              if (!mounted) return;
+
+              setState(() {
+                _isMapReady = true;
+              });
+            },
+          ),
+
+          children: [
+            TileLayer(
+              urlTemplate:
+              'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+
+              subdomains:
+              const [
+                'a',
+                'b',
+                'c',
+                'd',
+              ],
+
+              userAgentPackageName:
+              'com.maps.sateliteview',
+            ),
+
+            if (_currentLatLng != null)
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _currentLatLng!,
+                    width: 50,
+                    height: 50,
+                    alignment:
+                    Alignment.center,
+                    child: const Icon(
+                      Icons.location_on,
+                      color: Colors.red,
+                      size: 40,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  // ==========================================================
+  // LOCATION CARD
+  // ==========================================================
+
+  Widget _buildLocationCard() {
+    final bool locationAvailable =
+        hasLocationPermission &&
+            locationData != null;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.4),
+        borderRadius:
+        BorderRadius.circular(4),
+        border: Border.all(
+          color: CustomColors.primaryColor,
+          width: 2,
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 8,
+      ),
+      child: _isLoadingLocation
+          ? const Center(
+        child:
+        CustomCircleProgressIndicator(),
+      )
+          : Column(
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
+        children: [
+          Text(
+            locationAvailable
+                ? locationData!
+                .locationName ??
+                'Current location'
+                : 'Location unavailable',
+
+            maxLines: 1,
+
+            overflow:
+            TextOverflow.ellipsis,
+
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(
+              color: Colors.white,
+              fontWeight:
+              FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          Text(
+            locationAvailable
+                ? locationData!
+                .subLocation ??
+                ''
+                : 'Camera works without location access.',
+
+            maxLines: 2,
+
+            overflow:
+            TextOverflow.ellipsis,
+
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight:
+              FontWeight.w600,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          Text(
+            'Lat: ${locationData?.latitude ?? '--'}',
+
+            maxLines: 1,
+
+            overflow:
+            TextOverflow.ellipsis,
+
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(
+              color: Colors.white,
+              fontSize: 10,
+            ),
+          ),
+
+          const SizedBox(height: 4),
+
+          Text(
+            'Long: ${locationData?.longitude ?? '--'}',
+
+            maxLines: 1,
+
+            overflow:
+            TextOverflow.ellipsis,
+
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(
+              color: Colors.white,
+              fontSize: 10,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          Text(
+            dateTime ?? '',
+            maxLines: 1,
+            overflow:
+            TextOverflow.ellipsis,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight:
+              FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  // ==========================================================
+  // BOTTOM BUTTON
+  // ==========================================================
+
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 10,
+      ),
+      color: Colors.transparent,
+
+      child: CustomButton(
+        text: 'Capture Image',
+        onPressed: _takeScreenshot,
+        isLoading: false,
+      ),
+    );
+  }
+
+
+  // ==========================================================
+  // CAPTURE SCREENSHOT
+  // ==========================================================
+
   Future<void> _takeScreenshot() async {
+    if (!mounted) {
+      return;
+    }
+
+    final CameraController? controller =
+        _controller;
+
+    if (controller == null ||
+        !controller.value.isInitialized) {
+      _showMessage(
+        'Camera is not ready yet.',
+      );
+
+      return;
+    }
+
     try {
-      await _initializeControllerFuture;
-      await _captureScreenshot();
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error taking screenshot: $e');
+      final Future<void>? initialization =
+          _initializeControllerFuture;
+
+      if (initialization != null) {
+        await initialization;
       }
+
+      await WidgetsBinding
+          .instance
+          .endOfFrame;
+
+      await _captureScreenshot();
+
+    } on CameraException catch (e) {
+      log(
+        'Camera capture error: ${e.code}',
+        error: e,
+      );
+
+      _showMessage(
+        'Unable to capture image.',
+      );
+
+    } catch (e, stackTrace) {
+      log(
+        'Screenshot error',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
+      _showMessage(
+        'Unable to capture image. Please try again.',
+      );
     }
   }
+
 
   Future<void> _captureScreenshot() async {
-    var rng = Random();
-    final RenderRepaintBoundary boundary =
-        globalKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final BuildContext? repaintContext =
+        _globalKey.currentContext;
 
-    ui.Image image = await boundary.toImage();
-    final directory = await getApplicationDocumentsDirectory();
-
-    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    Uint8List pngBytes = byteData!.buffer.asUint8List();
-
-    File imgFile = File('${directory.path}/screenshot${rng.nextInt(200)}.png');
-    await imgFile.writeAsBytes(pngBytes);
-
-    if (imgFile.existsSync()) {
-      setState(() {
-        cameraImagePath = imgFile;
-      });
-
-      if (widget.onImageCaptured != null) {
-        ImageAndLocationData data = ImageAndLocationData(
-          imagePath: imgFile.path,
-          locationData: locationData,
-        );
-        widget.onImageCaptured!(data);
-      }
-    } else {
-      debugPrint('File does not exist');
+    if (repaintContext == null) {
+      throw StateError(
+        'Camera capture area is not ready.',
+      );
     }
-  }
 
-  /// Determines the current position if permission is granted.
-  /// Returns null otherwise. Never throws.
-  Future<Position?> _tryGetPosition() async {
-    return CustomLocationPermissionHandler.determinePosition();
-  }
+    final RenderObject? renderObject =
+    repaintContext.findRenderObject();
 
-  Future<void> updatePosition(BuildContext context) async {
+    if (renderObject is! RenderRepaintBoundary) {
+      throw StateError(
+        'Camera capture boundary is not available.',
+      );
+    }
+
+    final double pixelRatio =
+    MediaQuery.of(context)
+        .devicePixelRatio
+        .clamp(
+      1.0,
+      3.0,
+    );
+
+    final ui.Image image =
+    await renderObject.toImage(
+      pixelRatio: pixelRatio,
+    );
+
     try {
-      final position = await _tryGetPosition();
+      final ByteData? byteData =
+      await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
 
-      // ✅ Permission denied — keep UI functional with a friendly state.
-      if (position == null) {
-        if (!mounted) return;
-        if (hasLocationPermission == false &&
-            locationData != null &&
-            locationData!.locationName == 'Location unavailable') {
-          return; // already showing the "unavailable" state
-        }
-        setState(() {
-          hasLocationPermission = false;
-          locationData = LocationData(
-            latitude: null,
-            longitude: null,
-            locationName: 'Location unavailable',
-            subLocation: 'Enable location in Settings to see your address',
-          );
-        });
+      if (byteData == null) {
+        throw StateError(
+          'Could not convert captured image.',
+        );
+      }
+
+      final Uint8List pngBytes =
+      byteData.buffer.asUint8List();
+
+      final Directory directory =
+      await getApplicationDocumentsDirectory();
+
+      final String fileName =
+          'camera_${DateTime.now().millisecondsSinceEpoch}.png';
+
+      final File imageFile =
+      File(
+        '${directory.path}/$fileName',
+      );
+
+      await imageFile.writeAsBytes(
+        pngBytes,
+        flush: true,
+      );
+
+      if (!await imageFile.exists()) {
+        throw StateError(
+          'Captured image was not saved.',
+        );
+      }
+
+      if (!mounted) {
         return;
       }
 
-      final placeMarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
+      setState(() {
+        cameraImagePath = imageFile;
+      });
+
+      final ImageAndLocationData data =
+      ImageAndLocationData(
+        imagePath: imageFile.path,
+        locationData: locationData,
       );
 
-      LocationData newLocationData;
-      if (placeMarks.isNotEmpty) {
-        final placeMark = placeMarks.first;
-        newLocationData = LocationData(
-          latitude: position.latitude.toString(),
-          longitude: position.longitude.toString(),
-          locationName:
-              "${placeMark.locality ?? ""}, ${placeMark.administrativeArea ?? ""}, ${placeMark.country ?? ""}",
-          subLocation:
-              "${placeMark.street ?? ""}, ${placeMark.thoroughfare ?? ""} ${placeMark.administrativeArea ?? ""}",
-        );
-      } else {
-        newLocationData = LocationData(
-          longitude: position.longitude.toString(),
-          latitude: position.latitude.toString(),
-          locationName: 'Unknown location',
-          subLocation: "",
-        );
-      }
+      widget.onImageCaptured?.call(data);
 
-      if (!mounted) return;
+      _showMessage(
+        'Image captured successfully.',
+      );
 
-      setState(() {
-        hasLocationPermission = true;
-        if (newLocationData != locationData) {
-          locationData = newLocationData;
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        hasLocationPermission = false;
-        locationData = LocationData(
-          longitude: null,
-          latitude: null,
-          locationName: 'Location unavailable',
-          subLocation: 'Enable location in Settings to see your address',
-        );
-      });
+    } finally {
+      image.dispose();
     }
+  }
+
+
+  // ==========================================================
+  // MESSAGE
+  // ==========================================================
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior:
+          SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+
+  // ==========================================================
+  // DISPOSE
+  // ==========================================================
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+
+    WidgetsBinding.instance
+        .removeObserver(this);
+
+    final CameraController? controller =
+        _controller;
+
+    _controller = null;
+
+    if (controller != null) {
+      controller.dispose();
+    }
+
+    super.dispose();
   }
 }
