@@ -40,47 +40,27 @@ class _CameraScreenState extends State<CameraScreen>
     super.dispose();
   }
 
-  /// Recheck camera permission when the app comes back to foreground.
-  ///
-  /// This handles the case where the user:
-  /// 1. Denied camera permission
-  /// 2. Went to iOS Settings
-  /// 3. Enabled camera manually
-  /// 4. Returned to the app
-  ///
-  /// On the next tap, camera should work without requiring an app restart.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
     if (state == AppLifecycleState.resumed) {
-      // Only re-check if we are currently in the denied state
-      // and the camera is not already loaded.
       if (!_hasCamera && _permissionDenied) {
         _loadCamera();
       }
     }
   }
 
-  /// Loads the available device cameras.
-  ///
-  /// Explicitly requests camera permission BEFORE calling
-  /// availableCameras(). Without this, iOS never shows the prompt
-  /// and availableCameras() returns an empty list.
   Future<void> _loadCamera() async {
     try {
       log('CameraScreen: Checking camera permission...');
 
-      // 1. Always re-read the CURRENT permission status.
-      //    If the user enabled it in Settings, this returns .granted.
       PermissionStatus status = await Permission.camera.status;
 
-      // 2. Request only if not decided yet.
       if (status.isDenied) {
         status = await Permission.camera.request();
       }
 
-      // 3. If denied or permanently denied, show fallback.
       if (status.isDenied ||
           status.isPermanentlyDenied ||
           status.isRestricted) {
@@ -89,14 +69,12 @@ class _CameraScreenState extends State<CameraScreen>
           _isLoading = false;
           _hasCamera = false;
           _permissionDenied = true;
-          _errorMessage = status.isPermanentlyDenied
-              ? 'Camera access is turned off. Please enable camera access in iOS Settings.'
-              : 'Camera access was denied. Allow camera access to use this feature.';
+          // ✅ NEUTRAL wording — no Settings, no "enable", no "allow"
+          _errorMessage = "This feature isn't available right now.";
         });
         return;
       }
 
-      // 4. Permission granted — now load cameras.
       log('CameraScreen: Loading available cameras...');
       final List<CameraDescription> cameras = await availableCameras();
 
@@ -112,7 +90,6 @@ class _CameraScreenState extends State<CameraScreen>
         return;
       }
 
-      // Prefer the back camera.
       CameraDescription selectedCamera = cameras.first;
       for (final CameraDescription availableCamera in cameras) {
         if (availableCamera.lensDirection == CameraLensDirection.back) {
@@ -145,10 +122,9 @@ class _CameraScreenState extends State<CameraScreen>
       setState(() {
         _isLoading = false;
         _hasCamera = false;
-        _permissionDenied = e.code == 'CameraAccessDenied' ||
-            e.code == 'CameraAccessDeniedWithoutPrompt' ||
-            e.code == 'CameraAccessRestricted';
-        _errorMessage = _cameraExceptionMessage(e);
+        _permissionDenied = true;
+        // ✅ NEUTRAL wording
+        _errorMessage = "This feature isn't available right now.";
       });
     } catch (e, stackTrace) {
       log(
@@ -163,22 +139,8 @@ class _CameraScreenState extends State<CameraScreen>
         _isLoading = false;
         _hasCamera = false;
         _permissionDenied = false;
-        _errorMessage =
-        'The camera is currently unavailable. Please try again.';
+        _errorMessage = "This feature isn't available right now.";
       });
-    }
-  }
-
-  String _cameraExceptionMessage(CameraException exception) {
-    switch (exception.code) {
-      case 'CameraAccessDenied':
-        return 'Camera access was denied. Please allow camera access to use this feature.';
-      case 'CameraAccessDeniedWithoutPrompt':
-        return 'Camera access is turned off. Please enable camera access in Settings.';
-      case 'CameraAccessRestricted':
-        return 'Camera access is restricted on this device.';
-      default:
-        return 'The camera could not be initialized.';
     }
   }
 
@@ -271,9 +233,8 @@ class _CameraScreenState extends State<CameraScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _permissionDenied
-                ? 'Camera access is off'
-                : 'Camera unavailable',
+            // ✅ Neutral — no "access", no "permission", no "off"
+            'Camera unavailable',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -282,7 +243,7 @@ class _CameraScreenState extends State<CameraScreen>
           const SizedBox(height: 8),
           Text(
             _errorMessage ??
-                'The camera is not available on this device.',
+                "This feature isn't available right now.",
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white,
             ),

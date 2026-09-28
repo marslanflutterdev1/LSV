@@ -296,25 +296,26 @@ class _MapCameraLocationState extends State<MapCameraLocation>
       setState(() {
         _isCameraInitializing = false;
 
+        // ✅ Neutral error messages — no Settings references
         switch (e.code) {
           case 'CameraAccessDenied':
             _cameraErrorType = _CameraErrorType.denied;
             _cameraErrorMessage =
-            'Camera access was denied. Allow camera access to use the Camera feature.';
+            "This feature isn't available right now.";
             break;
 
           case 'CameraAccessDeniedWithoutPrompt':
             _cameraErrorType =
                 _CameraErrorType.deniedWithoutPrompt;
             _cameraErrorMessage =
-            'Camera access is currently turned off. Please enable camera access in Settings.';
+            "This feature isn't available right now.";
             break;
 
           case 'CameraAccessRestricted':
             _cameraErrorType =
                 _CameraErrorType.restricted;
             _cameraErrorMessage =
-            'Camera access is restricted on this device.';
+            "This feature isn't available right now.";
             break;
 
           default:
@@ -514,8 +515,6 @@ class _MapCameraLocationState extends State<MapCameraLocation>
         log('Location permission permanently denied.');
         return null;
       }
-
-
 
       final Position position =
       await Geolocator.getCurrentPosition(
@@ -751,7 +750,8 @@ class _MapCameraLocationState extends State<MapCameraLocation>
               const SizedBox(height: 20),
 
               Text(
-                _cameraErrorTitle(),
+                // ✅ Neutral title — no directive language
+                'Camera unavailable',
                 textAlign: TextAlign.center,
                 style: Theme.of(context)
                     .textTheme
@@ -765,7 +765,7 @@ class _MapCameraLocationState extends State<MapCameraLocation>
 
               Text(
                 _cameraErrorMessage ??
-                    'Camera is currently unavailable.',
+                    "This feature isn't available right now.",
                 textAlign: TextAlign.center,
                 style: Theme.of(context)
                     .textTheme
@@ -786,43 +786,11 @@ class _MapCameraLocationState extends State<MapCameraLocation>
                   ),
                 ),
               ),
-
-              const SizedBox(height: 12),
-
-              Text(
-                'If camera access was previously denied, '
-                    'iOS may require you to enable it in Settings.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall,
-              ),
             ],
           ),
         ),
       ),
     );
-  }
-
-
-  String _cameraErrorTitle() {
-    switch (_cameraErrorType) {
-      case _CameraErrorType.denied:
-        return 'Camera Permission Denied';
-
-      case _CameraErrorType.deniedWithoutPrompt:
-        return 'Camera Access Is Off';
-
-      case _CameraErrorType.restricted:
-        return 'Camera Access Restricted';
-
-      case _CameraErrorType.unavailable:
-        return 'Camera Unavailable';
-
-      case _CameraErrorType.unknown:
-      case null:
-        return 'Camera Error';
-    }
   }
 
 
