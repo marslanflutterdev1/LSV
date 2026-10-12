@@ -2,8 +2,6 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:provider/provider.dart';
 import 'package:satellite_view/core/theme/custom_colors.dart';
 import 'package:satellite_view/features/home/components/home_banner.dart';
 import 'package:satellite_view/features/home/components/home_menu_model.dart';
@@ -11,7 +9,6 @@ import 'package:satellite_view/mob_ads/interstitial_ads/ad_frequency_manager.dar
 import 'package:satellite_view/mob_ads/interstitial_ads/interstitial_ad_mob.dart';
 
 import '../../core/utils/utils.dart';
-import '../../mob_ads/app_open_ads/open_app_ad_mob.dart';
 import '../../mob_ads/banner_ads/banner_ad_mob.dart';
 import '../../widgets/custom_icon.dart';
 import '../../widgets/custom_text_form_field.dart';
@@ -75,22 +72,26 @@ class MapSampleState extends State<HomeScreen>{
 
 
 
-   Future<void> navigateWithAd(
-       HomeMenuModel menu,
-      ) async{
-     final shouldShowAd =
-     await AdFrequencyManager.shouldShowAd(
-       menu.title,
-     );
+
+  Future<void> navigateWithAd(HomeMenuModel menu) async {
+    if (menu.onTap != null) {
+      await menu.onTap!();
+      return;
+    }
+
+    // Safety check.
+    if (menu.screen == null) {
+      return;
+    }
+
+    final shouldShowAd = await AdFrequencyManager.shouldShowAd(
+      menu.title,
+    );
+
     if (shouldShowAd) {
-
-     InterstitialAdMob.showInterstitialAd(onComplete: (){
-        _navigateTo(menu.screen);
-
-      });
-
+      InterstitialAdMob.showInterstitialAd(onComplete: () {_navigateTo(menu.screen!);},);
     } else {
-      _navigateTo(menu.screen);
+      _navigateTo(menu.screen!);
     }
   }
 
@@ -98,6 +99,8 @@ class MapSampleState extends State<HomeScreen>{
     if (!mounted) return;
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
+
+
 
 
   @override
@@ -196,12 +199,11 @@ class MapSampleState extends State<HomeScreen>{
                     return GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () async {
-                        log(
-                          "Screen Name: ${filteredMenus[index].screen}",
-                        );
+                        final menu = filteredMenus[index];
 
-                        // await _handleMenuTap(filteredMenus[index]);
-                        navigateWithAd(filteredMenus[index]);
+                        log('Menu tapped: ${menu.title}');
+
+                        await navigateWithAd(menu);
                       },
                       child: Container(
                         decoration: BoxDecoration(

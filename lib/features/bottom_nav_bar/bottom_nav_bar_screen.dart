@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:satellite_view/features/bottom_nav_bar/bottom_nav_bar_provider.dart';
 import 'package:satellite_view/features/home/camera/camera_screen.dart';
-import 'package:satellite_view/features/home/route_finder/route_finder_screen.dart';
-import 'package:satellite_view/features/home/satellite_view/satellite_view_screen.dart';
+import 'package:satellite_view/features/home/components/app_share_services.dart';
 import 'package:satellite_view/features/home/satellite_view/satellite_view_screen1.dart';
 import 'package:satellite_view/main.dart';
 import 'package:satellite_view/mob_ads/interstitial_ads/interstitial_ad_mob.dart';
@@ -11,7 +10,6 @@ import '../../core/theme/custom_colors.dart';
 import '../../globle/globle_pop_scope_provider.dart';
 import '../../mob_ads/interstitial_ads/ad_frequency_manager.dart';
 import '../home/home_screen.dart';
-import '../settings/settings_screen.dart';
 
 class BottomNavBarScreen extends StatefulWidget {
   const BottomNavBarScreen({super.key});
@@ -59,7 +57,6 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
         HomeScreen(),
         SatelliteViewScreen1(),
         CameraScreen(),
-        // SettingsScreen(),
   ];
 
   @override
@@ -118,7 +115,14 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
                         selectedItemColor: CustomColors.primaryColor,
                         unselectedItemColor: CustomColors.grey,
                         currentIndex: provider.currentIndex,
+
                         onTap: (index)async{
+                          // Don't do anything if already selected
+                          if (index == provider.currentIndex) {
+                            return;
+                          }
+
+
                           if(index == 2){
                             setState(() {
                               isGps = true;
@@ -128,11 +132,17 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
                               isGps = false;
                             });
                           }
+
+                          // Share App
+                          if (index == 3) {
+                            await AppShareService.shareApp();
+                            return;
+                          }
+
                           final shouldShowAd = await AdFrequencyManager.shouldShowAd(index.toString(), fx: 3);
                           if (shouldShowAd) {
                              InterstitialAdMob.showInterstitialAd(onComplete: (){
                               provider.setCurrentIndex(index);
-
                             });
 
                           } else {
@@ -187,17 +197,17 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
                           ),
 
                           /// This in remender
-                          // BottomNavigationBarItem(
-                          //   icon: Image.asset(
-                          //     'assets/images/home_icons/home_icon_12.png',
-                          //     width: 20,
-                          //     height: 20,
-                          //     color: provider.currentIndex == 3
-                          //         ? CustomColors.primaryColor
-                          //         : CustomColors.grey,
-                          //   ),
-                          //   label: "Share",
-                          // ),
+                          BottomNavigationBarItem(
+                            icon: Image.asset(
+                              'assets/images/home_icons/home_icon_12.png',
+                              width: 20,
+                              height: 20,
+                              color: provider.currentIndex == 3
+                                  ? CustomColors.primaryColor
+                                  : CustomColors.grey,
+                            ),
+                            label: "Share",
+                          ),
                         ],
                       );
                     },

@@ -3,10 +3,10 @@ import 'package:satellite_view/features/home/about_us/about_us_screen.dart';
 import 'package:satellite_view/features/home/area_calculator/area_calculator_screen.dart';
 import 'package:satellite_view/features/home/camera/camera_screen.dart';
 import 'package:satellite_view/features/home/compass/compass_screen.dart';
+import 'package:satellite_view/features/home/components/app_share_services.dart';
 import 'package:satellite_view/features/home/my_location/my_location_screen.dart';
 import 'package:satellite_view/features/home/nearby_places/nearby_places_screen.dart';
 import 'package:satellite_view/features/home/route_finder/route_finder_screen.dart';
-import 'package:satellite_view/features/home/share_app/share_app_screen.dart';
 import 'package:satellite_view/features/home/speedo_meter/speedo_meter_screen.dart';
 import 'package:satellite_view/features/home/street_view/street_view_screen.dart';
 import 'package:satellite_view/features/home/traffic/traffic_screen.dart';
@@ -15,13 +15,15 @@ import '../satellite_view/satellite_view_screen.dart';
 
 class HomeMenuModel {
   final String title;
-  final Widget screen;
+  final Widget? screen;
   final String url;
+  final Future<void> Function()? onTap;
 
   HomeMenuModel({
     required this.title,
     required this.url,
-    required this.screen,
+    this.screen,
+    this.onTap,
   });
 }
 
@@ -93,9 +95,9 @@ final List<HomeMenuModel> homeMenusList = [
   ),
 
   /// This will be load in milestone or keep in remender
-  // HomeMenuModel(
-  //   title: 'Share App',
-  //   url: 'assets/images/home_icons/home_icon_12.png',
-  //   screen: const ShareAppScreen(),
-  // ),
+  HomeMenuModel(
+    title: 'Share App',
+    url: 'assets/images/home_icons/home_icon_12.png',
+    onTap: AppShareService.shareApp,
+  ),
 ];

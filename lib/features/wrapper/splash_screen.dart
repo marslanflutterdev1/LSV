@@ -53,14 +53,15 @@ class _SplashScreenState extends State<SplashScreen> {
               height: 150,
               width: 150,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
+                // shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(10),
                 image: DecorationImage(
-                  image: AssetImage('assets/images/splash.jpg'),
+                  image: AssetImage('assets/images/app_icon.png'),
                   fit: BoxFit.cover,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black38,
+                    color: Colors.transparent,
                     blurRadius: 20,
                     spreadRadius: 4,
                     offset: Offset(0, 8),

@@ -12,6 +12,7 @@ import 'package:satellite_view/globle/globle_pop_scope_provider.dart';
 import 'package:satellite_view/local/local_sp.dart';
 import 'package:satellite_view/mob_ads/app_open_ads/open_app_ad_mob.dart';
 import 'package:satellite_view/mob_ads/firebase_remote_configration/firebase_remote_configration.dart';
+import 'package:satellite_view/widgets/review_promoted_services.dart';
 import 'core/theme/custom_theme.dart';
 import 'core/theme/custom_theme_provider.dart';
 import 'features/bottom_nav_bar/bottom_nav_bar_provider.dart';
@@ -25,6 +26,7 @@ import 'features/wrapper/splash_screen.dart';
 import 'firebase_options.dart';
 import 'mob_ads/app_open_ads/app_lifecycle_reactor.dart';
 import 'mob_ads/interstitial_ads/interstitial_ad_mob.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 bool isGps = false;
 
@@ -34,6 +36,12 @@ void main() async {
 
   /// Initialize firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
+
+  await ReviewPromptService.instance.initialize();
+
 
   /// Reset sp data
   /// This clear data when app restart and load again.
