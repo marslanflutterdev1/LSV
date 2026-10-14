@@ -1,4 +1,3 @@
-
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
@@ -20,7 +19,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => MapSampleState();
 }
 
-class MapSampleState extends State<HomeScreen>{
+class MapSampleState extends State<HomeScreen> {
   final TextEditingController searchController = TextEditingController();
   final FocusNode searchFocusNode = FocusNode();
 
@@ -33,7 +32,6 @@ class MapSampleState extends State<HomeScreen>{
     /// Interstitial Ad Mob Load
     InterstitialAdMob.loadInterstitialAd();
 
-
     /// Show all cards initially
     filteredMenus = homeMenusList;
 
@@ -43,16 +41,12 @@ class MapSampleState extends State<HomeScreen>{
     });
   }
 
-
   @override
   void dispose() {
     searchController.dispose();
     searchFocusNode.dispose();
     super.dispose();
   }
-
-
-
 
   void searchMenu(String query) {
     if (query.isEmpty) {
@@ -70,9 +64,6 @@ class MapSampleState extends State<HomeScreen>{
     }
   }
 
-
-
-
   Future<void> navigateWithAd(HomeMenuModel menu) async {
     if (menu.onTap != null) {
       await menu.onTap!();
@@ -84,12 +75,14 @@ class MapSampleState extends State<HomeScreen>{
       return;
     }
 
-    final shouldShowAd = await AdFrequencyManager.shouldShowAd(
-      menu.title,
-    );
+    final shouldShowAd = await AdFrequencyManager.shouldShowAd(menu.title);
 
     if (shouldShowAd) {
-      InterstitialAdMob.showInterstitialAd(onComplete: () {_navigateTo(menu.screen!);},);
+      InterstitialAdMob.showInterstitialAd(
+        onComplete: () {
+          _navigateTo(menu.screen!);
+        },
+      );
     } else {
       _navigateTo(menu.screen!);
     }
@@ -99,9 +92,6 @@ class MapSampleState extends State<HomeScreen>{
     if (!mounted) return;
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -157,19 +147,6 @@ class MapSampleState extends State<HomeScreen>{
             ),
           ),
         ),
-        //
-        // actions: [
-        //   Container(
-        //     height: 40,
-        //     width: 40,
-        //     decoration: BoxDecoration(
-        //       color: CustomColors.iconBackgroundColor,
-        //       borderRadius: BorderRadius.circular(50),
-        //     ),
-        //     child: const Center(child: Icon(Icons.person)),
-        //   ),
-        //   const SizedBox(width: 10),
-        // ],
       ),
 
       body: SafeArea(
@@ -187,61 +164,58 @@ class MapSampleState extends State<HomeScreen>{
                 child: filteredMenus.isEmpty
                     ? _buildEmptyState(context)
                     : GridView.builder(
-                  itemCount: filteredMenus.length,
-                  gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    mainAxisExtent: 70,
-                  ),
-                  itemBuilder: (context, index) {
-                    return GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () async {
-                        final menu = filteredMenus[index];
-
-                        log('Menu tapped: ${menu.title}');
-
-                        await navigateWithAd(menu);
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 10),
-
-                            buildContainer(
-                              url: filteredMenus[index].url
-                                  .toString(),
+                        itemCount: filteredMenus.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 10,
+                              mainAxisSpacing: 10,
+                              mainAxisExtent: 70,
                             ),
+                        itemBuilder: (context, index) {
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () async {
+                              final menu = filteredMenus[index];
 
-                            const SizedBox(width: 10),
+                              log('Menu tapped: ${menu.title}');
 
-                            Expanded(
-                              child: Text(
-                                filteredMenus[index].title.toString(),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(
-                                  color: CustomColors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              await navigateWithAd(menu);
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 10),
+
+                                  buildContainer(
+                                    url: filteredMenus[index].url.toString(),
+                                  ),
+
+                                  const SizedBox(width: 10),
+
+                                  Expanded(
+                                    child: Text(
+                                      filteredMenus[index].title.toString(),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            color: CustomColors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
               ),
             ],
           ),

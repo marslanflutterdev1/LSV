@@ -85,7 +85,7 @@ final List<HomeMenuModel> homeMenusList = [
   HomeMenuModel(
     title: 'Camera',
     url: 'assets/images/home_icons/home_icon_10.png',
-    screen: CameraScreen()
+    screen: CameraScreen(),
   ),
 
   HomeMenuModel(

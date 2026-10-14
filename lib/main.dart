@@ -12,7 +12,7 @@ import 'package:satellite_view/globle/globle_pop_scope_provider.dart';
 import 'package:satellite_view/local/local_sp.dart';
 import 'package:satellite_view/mob_ads/app_open_ads/open_app_ad_mob.dart';
 import 'package:satellite_view/mob_ads/firebase_remote_configration/firebase_remote_configration.dart';
-import 'package:satellite_view/widgets/review_promoted_services.dart';
+import 'package:satellite_view/widgets/review_prompt_service.dart';
 import 'core/theme/custom_theme.dart';
 import 'core/theme/custom_theme_provider.dart';
 import 'features/bottom_nav_bar/bottom_nav_bar_provider.dart';
@@ -34,13 +34,14 @@ void main() async {
   /// Binding features
   WidgetsFlutterBinding.ensureInitialized();
 
+  await ReviewPromptService.instance.initialize();
+
   /// Initialize firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
 
   await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
 
-  await ReviewPromptService.instance.initialize();
 
 
   /// Reset sp data
